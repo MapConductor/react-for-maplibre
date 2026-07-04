@@ -262,11 +262,18 @@ export class MapLibreViewController
   }
 
   getCameraPosition(): MapCameraPosition | null {
-    return toMapCameraPosition({
+    const camera = toMapCameraPosition({
       center: this.mapInstance.getCenter(),
       zoom: this.mapInstance.getZoom(),
       bearing: this.mapInstance.getBearing(),
       pitch: this.mapInstance.getPitch(),
+    });
+    const bounds = this.getBounds();
+    if (!camera || !bounds) return camera;
+    // Matches Android: the visible region rides on cameraPosition so that
+    // mapViewState.cameraPosition.visibleRegion works without the controller.
+    return camera.copy({
+      visibleRegion: { bounds, nearLeft: null, nearRight: null, farLeft: null, farRight: null },
     });
   }
 
