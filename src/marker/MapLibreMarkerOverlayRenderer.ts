@@ -49,6 +49,9 @@ export class MapLibreMarkerOverlayRenderer extends AbstractMarkerOverlayRenderer
     this.markerManager = markerManager;
     this.markerLayer = markerLayer;
     this.dragLayer = dragLayer;
+    // MarkerLayer.draw() already filters out entities with visible=false,
+    // so hiding the native marker while the animation overlay plays is free.
+    this.supportsAnimationOverlay = true;
   }
 
   async onAdd(data: AddParams[]): Promise<(MapLibreActualMarker | null)[]> {
@@ -83,6 +86,11 @@ export class MapLibreMarkerOverlayRenderer extends AbstractMarkerOverlayRenderer
     this.redraw();
     this.drawDragLayer();
     this.removeUnusedImages();
+  }
+
+  override setMarkerVisible(entity: MarkerEntity<MapLibreActualMarker>, visible: boolean): void {
+    entity.visible = visible;
+    this.redraw();
   }
 
   setMarkerPosition(

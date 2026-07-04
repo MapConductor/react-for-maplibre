@@ -12,6 +12,7 @@ import {
   type MapCameraPosition,
   type OnMapInitializedHandler,
   type MapViewControllerInterface,
+  type MarkerAnimationOverlayHost,
   type MarkerCapable,
   type MarkerState,
   type OnCircleEventHandler,
@@ -318,6 +319,9 @@ export class MapLibreViewController
   }
   setOnMarkerAnimateEnd(_listener: OnMarkerEventHandler | null): void {
     this.markerEventController.setAnimateEndListener(_listener);
+  }
+  setMarkerAnimationOverlayHost(host: MarkerAnimationOverlayHost | null): void {
+    this.markerController.setMarkerAnimationOverlayHost(host);
   }
 
   // --- Circle ---
