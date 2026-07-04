@@ -25,7 +25,7 @@ import {
   type PolylineState,
   type RasterLayerCapable,
   type RasterLayerState,
-} from '@mapconductor/core';
+} from '@mapconductor/js-sdk-core';
 import { lngLatFromEvent } from './helpers';
 import { toCameraPosition, toMapCameraPosition } from './MapCameraPosition';
 import { MapLibreMapViewHolder } from './MapLibreMapViewHolder';

@@ -3,7 +3,7 @@ import {
   type CircleEntity,
   type CircleManagerInterface,
   type CircleState,
-} from '@mapconductor/core';
+} from '@mapconductor/js-sdk-core';
 import { MapLibreMapViewHolder } from '../MapLibreMapViewHolder';
 import {
   MapLibreCircleLayer,

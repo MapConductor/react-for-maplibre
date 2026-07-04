@@ -1,4 +1,4 @@
-import { createGroundImageEntity, type GeoPoint, type GroundImageState } from '@mapconductor/core';
+import { createGroundImageEntity, type GeoPoint, type GroundImageState } from '@mapconductor/js-sdk-core';
 import { MapLibreGroundImageOverlayRenderer } from './MapLibreGroundImageOverlayRenderer';
 
 export class MapLibreGroundImageController {

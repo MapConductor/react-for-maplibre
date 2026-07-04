@@ -1,4 +1,4 @@
-import type { GeoPoint, MarkerEntity } from '@mapconductor/core';
+import type { GeoPoint, MarkerEntity } from '@mapconductor/js-sdk-core';
 import type { FeatureCollection } from '../helpers';
 import { MapLibreMapViewHolder } from '../MapLibreMapViewHolder';
 import {

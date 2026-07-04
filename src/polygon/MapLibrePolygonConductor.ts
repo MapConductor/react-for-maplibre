@@ -3,7 +3,7 @@ import {
   createPolygonEntity,
   type OnPolygonEventHandler,
   type PolygonState,
-} from '@mapconductor/core';
+} from '@mapconductor/js-sdk-core';
 import { lngLatFromEvent } from '../helpers';
 import { MapLibreMapViewHolder } from '../MapLibreMapViewHolder';
 import { MapLibrePolygonOverlayRenderer } from './MapLibrePolygonOverlayRenderer';

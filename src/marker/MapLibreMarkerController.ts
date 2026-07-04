@@ -14,7 +14,7 @@ import {
   type MarkerEntity,
   type MarkerState,
   type RasterLayerState,
-} from '@mapconductor/core';
+} from '@mapconductor/js-sdk-core';
 import maplibregl from 'maplibre-gl';
 import { MapLibreMapViewHolder } from '../MapLibreMapViewHolder';
 import { MapLibreMarkerOverlayRenderer } from './MapLibreMarkerOverlayRenderer';

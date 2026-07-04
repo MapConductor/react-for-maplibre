@@ -1,4 +1,4 @@
-import { AbstractZoomAltitudeConverter } from '@mapconductor/core';
+import { AbstractZoomAltitudeConverter } from '@mapconductor/js-sdk-core';
 
 export class ZoomAltitudeConverter extends AbstractZoomAltitudeConverter {
     /** Empirical offset: GoogleZoom ≈ MapLibreSDK.zoom + 1.0 */

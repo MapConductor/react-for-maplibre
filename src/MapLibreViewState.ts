@@ -8,7 +8,7 @@ import {
   type MapViewHolder,
   MapCameraPosition as MapCameraPositionNS,
   createRandomId,
-} from '@mapconductor/core';
+} from '@mapconductor/js-sdk-core';
 import { MapLibreDesign, type MapLibreMapDesignType } from './MapLibreDesign';
 import type { MapLibreMapViewHolder } from './MapLibreMapViewHolder';
 

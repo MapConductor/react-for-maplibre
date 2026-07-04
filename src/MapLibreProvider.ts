@@ -8,7 +8,7 @@ import {
   PolylineManager,
   type MapConfig,
   type MapViewControllerInterface,
-} from '@mapconductor/core';
+} from '@mapconductor/js-sdk-core';
 import { MapLibreViewController } from './MapLibreViewController';
 import { ZoomAltitudeConverter } from './zoom/ZoomAltitudeConverter';
 import { MapLibreMapViewHolder } from './MapLibreMapViewHolder';

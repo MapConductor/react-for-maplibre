@@ -2,7 +2,7 @@ import type { MapLayerMouseEvent } from 'maplibre-gl';
 import {
   PolylineController,
   type PolylineState,
-} from '@mapconductor/core';
+} from '@mapconductor/js-sdk-core';
 import { lngLatFromEvent } from '../helpers';
 import { MapLibreMapViewHolder } from '../MapLibreMapViewHolder';
 import {

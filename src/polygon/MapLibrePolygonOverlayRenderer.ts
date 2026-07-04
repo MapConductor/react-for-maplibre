@@ -7,7 +7,7 @@ import {
   type PolygonEntity,
   type PolygonManagerInterface,
   type PolygonState,
-} from '@mapconductor/core';
+} from '@mapconductor/js-sdk-core';
 import type { Coordinate, LineFeature, PolygonFeature } from '../helpers';
 import { MapLibreMapViewHolder } from '../MapLibreMapViewHolder';
 import {

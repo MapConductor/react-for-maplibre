@@ -1,5 +1,5 @@
 import type { GeoJSONSource, LayerSpecification } from 'maplibre-gl';
-import type { PolylineEntity } from '@mapconductor/core';
+import type { PolylineEntity } from '@mapconductor/js-sdk-core';
 import { bringMarkerLayersToFront, type FeatureCollection, type LineFeature } from '../helpers';
 import { MapLibreMapViewHolder } from '../MapLibreMapViewHolder';
 

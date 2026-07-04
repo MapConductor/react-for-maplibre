@@ -5,7 +5,7 @@ import {
   type GeoPoint,
   type GeoPointInterface,
   type Offset,
-} from '@mapconductor/core';
+} from '@mapconductor/js-sdk-core';
 import type { MapLibreViewController } from './MapLibreViewController';
 
 export class MapLibreMapViewHolder extends MapViewHolderBase<HTMLElement, maplibregl.Map> {

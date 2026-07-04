@@ -2,7 +2,7 @@ import type {
   MarkerEntity,
   OnMarkerEventHandler,
   Offset,
-} from '@mapconductor/core';
+} from '@mapconductor/js-sdk-core';
 import { MapLibreMarkerController } from './MapLibreMarkerController';
 import {
   type MapLibreActualMarker,

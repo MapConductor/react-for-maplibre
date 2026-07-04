@@ -5,14 +5,14 @@ import {
   MapViewScopeProvider,
   InfoBubbleOverlay,
   type InfoBubbleEntry,
-} from '@mapconductor/react';
+} from '@mapconductor/js-sdk-react';
 import {
   MapViewBaseProps,
   OverlayCollector,
   MarkerTilingOptions,
   type MapCameraPosition,
   type GeoPoint,
-} from '@mapconductor/core';
+} from '@mapconductor/js-sdk-core';
 import { MapLibreProvider, MapLibreConfig } from './MapLibreProvider';
 import { MapLibreViewState } from './MapLibreViewState';
 import type { MapLibreViewController } from './MapLibreViewController';

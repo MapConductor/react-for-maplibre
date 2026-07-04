@@ -1,5 +1,5 @@
 import type { GeoJSONSource, LayerSpecification } from 'maplibre-gl';
-import type { PolygonEntity } from '@mapconductor/core';
+import type { PolygonEntity } from '@mapconductor/js-sdk-core';
 import type {
   FeatureCollection,
   LineFeature,

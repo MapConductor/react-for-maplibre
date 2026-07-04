@@ -3,7 +3,7 @@ import type {
   GeoJSONSource,
   LayerSpecification,
 } from 'maplibre-gl';
-import type { MarkerEntity } from '@mapconductor/core';
+import type { MarkerEntity } from '@mapconductor/js-sdk-core';
 import { bringMarkerLayersToFront, type FeatureCollection, type PointFeature } from '../helpers';
 import { MapLibreMapViewHolder } from '../MapLibreMapViewHolder';
 

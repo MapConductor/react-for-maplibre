@@ -10,7 +10,7 @@ import {
   type MarkerEntity,
   type MarkerManager,
   type MarkerState,
-} from '@mapconductor/core';
+} from '@mapconductor/js-sdk-core';
 import { MapLibreMapViewHolder } from '../MapLibreMapViewHolder';
 import { MarkerDragLayer } from './MarkerDragLayer';
 import {

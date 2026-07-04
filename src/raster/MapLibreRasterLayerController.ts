@@ -1,4 +1,4 @@
-import { type RasterLayerState } from '@mapconductor/core';
+import { type RasterLayerState } from '@mapconductor/js-sdk-core';
 import { MapLibreRasterLayerOverlayRenderer } from './MapLibreRasterLayerOverlayRenderer';
 
 export class MapLibreRasterLayerController {

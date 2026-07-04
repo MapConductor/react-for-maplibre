@@ -3,7 +3,7 @@ import {
   AbstractGroundImageOverlayRenderer,
   type GroundImageEntity,
   type GroundImageState,
-} from '@mapconductor/core';
+} from '@mapconductor/js-sdk-core';
 import { bringMarkerLayersToFront, groundImageCoordinates, removeLayerIfExists, removeSourceIfExists } from '../helpers';
 import { MapLibreMapViewHolder } from '../MapLibreMapViewHolder';
 

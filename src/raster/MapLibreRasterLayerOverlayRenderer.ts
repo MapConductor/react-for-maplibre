@@ -1,5 +1,5 @@
 import type { LayerSpecification } from 'maplibre-gl';
-import { type RasterLayerState } from '@mapconductor/core';
+import { type RasterLayerState } from '@mapconductor/js-sdk-core';
 import { bringMarkerLayersToFront, createRasterSource, removeLayerIfExists, removeSourceIfExists } from '../helpers';
 import { MapLibreMapViewHolder } from '../MapLibreMapViewHolder';
 

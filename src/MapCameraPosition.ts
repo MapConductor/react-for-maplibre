@@ -1,4 +1,4 @@
-import { createGeoPoint, createMapCameraPosition, type MapCameraPosition } from '@mapconductor/core';
+import { createGeoPoint, createMapCameraPosition, type MapCameraPosition } from '@mapconductor/js-sdk-core';
 import type maplibregl from 'maplibre-gl';
 import { ZoomAltitudeConverter } from './zoom/ZoomAltitudeConverter';
 

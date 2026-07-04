@@ -3,7 +3,7 @@ import type {
   GeoJSONSource,
   LayerSpecification,
 } from 'maplibre-gl';
-import { Earth, type CircleEntity } from '@mapconductor/core';
+import { Earth, type CircleEntity } from '@mapconductor/js-sdk-core';
 import { bringMarkerLayersToFront, type FeatureCollection, type PointFeature } from '../helpers';
 import { MapLibreMapViewHolder } from '../MapLibreMapViewHolder';
 

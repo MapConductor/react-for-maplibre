@@ -7,7 +7,7 @@ import {
   type PolylineEntity,
   type PolylineManagerInterface,
   type PolylineState,
-} from '@mapconductor/core';
+} from '@mapconductor/js-sdk-core';
 import type { LineFeature } from '../helpers';
 import { MapLibreMapViewHolder } from '../MapLibreMapViewHolder';
 import {

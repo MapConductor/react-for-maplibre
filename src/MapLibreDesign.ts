@@ -1,4 +1,4 @@
-import type { MapDesignTypeInterface } from '@mapconductor/core';
+import type { MapDesignTypeInterface } from '@mapconductor/js-sdk-core';
 
 export interface MapLibreMapDesignType extends MapDesignTypeInterface<string> {
   readonly styleJsonURL: string;

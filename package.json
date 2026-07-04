@@ -1,5 +1,5 @@
 {
-  "name": "@mapconductor/maplibre",
+  "name": "@mapconductor/js-sdk-react-for-maplibre",
   "version": "0.1.0",
   "description": "MapLibre provider for MapConductor React SDK",
   "main": "./dist/index.js",
@@ -33,12 +33,12 @@
   "author": "MapConductor",
   "license": "MIT",
   "peerDependencies": {
-    "@mapconductor/core": "^0.1.0",
+    "@mapconductor/js-sdk-core": "^0.1.0",
     "react": "^19.2.0"
   },
   "dependencies": {
-    "@mapconductor/core": "workspace:*",
-    "@mapconductor/react": "workspace:*",
+    "@mapconductor/js-sdk-core": "workspace:*",
+    "@mapconductor/js-sdk-react": "workspace:*",
     "maplibre-gl": "^5.11.0"
   },
   "devDependencies": {

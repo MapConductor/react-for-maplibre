@@ -1,6 +1,6 @@
 import maplibregl from 'maplibre-gl';
 import type { SourceSpecification } from 'maplibre-gl';
-import { createGeoPoint, TileScheme, type GeoPoint, type GroundImageState, type PolygonState, type RasterLayerSource } from '@mapconductor/core';
+import { createGeoPoint, TileScheme, type GeoPoint, type GroundImageState, type PolygonState, type RasterLayerSource } from '@mapconductor/js-sdk-core';
 
 export type Coordinate = [number, number];
 export type GeoJSONSourceData = Parameters<maplibregl.GeoJSONSource['setData']>[0];
