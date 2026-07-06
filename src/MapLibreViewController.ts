@@ -1,7 +1,6 @@
 import maplibregl from 'maplibre-gl';
 import {
   BaseMapViewController,
-  createGeoPoint,
   createGeoRectBounds,
   type CameraOptions,
   type CircleCapable,
@@ -12,6 +11,7 @@ import {
   type MapCameraPosition,
   type OnMapInitializedHandler,
   type MapViewControllerInterface,
+  type MarkerAnimationOverlayHost,
   type MarkerCapable,
   type MarkerState,
   type OnCircleEventHandler,
@@ -25,6 +25,7 @@ import {
   type PolylineState,
   type RasterLayerCapable,
   type RasterLayerState,
+  type VisibleRegion,
 } from '@mapconductor/js-sdk-core';
 import { lngLatFromEvent } from './helpers';
 import { toCameraPosition, toMapCameraPosition } from './MapCameraPosition';
@@ -262,20 +263,49 @@ export class MapLibreViewController
   }
 
   getCameraPosition(): MapCameraPosition | null {
-    return toMapCameraPosition({
+    const camera = toMapCameraPosition({
       center: this.mapInstance.getCenter(),
       zoom: this.mapInstance.getZoom(),
       bearing: this.mapInstance.getBearing(),
       pitch: this.mapInstance.getPitch(),
     });
+    if (!camera) return camera;
+    const visibleRegion = this.getVisibleRegion();
+    if (!visibleRegion) return camera;
+    // Matches Android: the visible region rides on cameraPosition so that
+    // mapViewState.cameraPosition.visibleRegion works without the controller.
+    return camera.copy({ visibleRegion });
   }
 
   getBounds(): GeoRectBounds | null {
-    const bounds = this.mapInstance.getBounds();
-    return createGeoRectBounds({
-      southWest: createGeoPoint({ latitude: bounds.getSouth(), longitude: bounds.getWest() }),
-      northEast: createGeoPoint({ latitude: bounds.getNorth(), longitude: bounds.getEast() }),
-    });
+    return this.getVisibleRegion()?.bounds ?? null;
+  }
+
+  /**
+   * Projects the four screen corners of the map viewport back to geo
+   * coordinates via `fromScreenOffsetSync` and extends a bounds from them,
+   * instead of using `map.getBounds()`'s axis-aligned box — this stays
+   * correct when the map is rotated. Mirrors Android's
+   * `MapLibreViewControllerImpl.getMapCameraPosition()`.
+   */
+  private getVisibleRegion(): VisibleRegion | null {
+    const canvas = this.mapInstance.getCanvas();
+    const width = canvas.clientWidth;
+    const height = canvas.clientHeight;
+    if (!width || !height) return null;
+
+    const nearLeft = this.holder.fromScreenOffsetSync({ x: 0, y: height });
+    const nearRight = this.holder.fromScreenOffsetSync({ x: width, y: height });
+    const farLeft = this.holder.fromScreenOffsetSync({ x: 0, y: 0 });
+    const farRight = this.holder.fromScreenOffsetSync({ x: width, y: 0 });
+
+    const bounds = createGeoRectBounds();
+    bounds.extend(nearLeft);
+    bounds.extend(nearRight);
+    bounds.extend(farLeft);
+    bounds.extend(farRight);
+
+    return { bounds, nearLeft, nearRight, farLeft, farRight };
   }
 
   // --- Marker ---
@@ -311,6 +341,9 @@ export class MapLibreViewController
   }
   setOnMarkerAnimateEnd(_listener: OnMarkerEventHandler | null): void {
     this.markerEventController.setAnimateEndListener(_listener);
+  }
+  setMarkerAnimationOverlayHost(host: MarkerAnimationOverlayHost | null): void {
+    this.markerController.setMarkerAnimationOverlayHost(host);
   }
 
   // --- Circle ---

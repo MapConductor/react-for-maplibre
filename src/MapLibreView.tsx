@@ -4,6 +4,7 @@ import {
   MapViewScope,
   MapViewScopeProvider,
   InfoBubbleOverlay,
+  MarkerAnimationLayer,
   type InfoBubbleEntry,
 } from '@mapconductor/js-sdk-react';
 import {
@@ -12,6 +13,7 @@ import {
   MarkerTilingOptions,
   type MapCameraPosition,
   type GeoPoint,
+  type MarkerAnimationOverlayEntry,
 } from '@mapconductor/js-sdk-core';
 import { MapLibreProvider, MapLibreConfig } from './MapLibreProvider';
 import { MapLibreViewState } from './MapLibreViewState';
@@ -60,6 +62,7 @@ export function MapLibreView({
   const bridgeUnsubs = useRef<(() => void)[]>([]);
   const typedControllerRef = useRef<MapLibreViewController | null>(null);
   const [bubbleEntries, setBubbleEntries] = useState<InfoBubbleEntry[]>([]);
+  const [animationEntries, setAnimationEntries] = useState<MarkerAnimationOverlayEntry[]>([]);
   const [cameraTick, setCameraTick] = useState(0);
 
   // Keep latest callbacks in refs to avoid stale closures without re-running the effect
@@ -135,6 +138,14 @@ export function MapLibreView({
         });
         bridgeUnsubs.current.push(bubbleUnsub);
 
+        // Route Drop/Bounce animations to the screen-space overlay instead of
+        // interpolating geo coordinates. Mirrors Android's
+        // setMarkerAnimationOverlayHost wiring in MapViewBase.kt.
+        typedControllerRef.current.setMarkerAnimationOverlayHost(scope.markerAnimationStore.start);
+        bridgeUnsubs.current.push(() => typedControllerRef.current?.setMarkerAnimationOverlayHost(null));
+        const animationUnsub = scope.markerAnimationStore.subscribe(setAnimationEntries);
+        bridgeUnsubs.current.push(animationUnsub);
+
         // Mirrors Android's MapViewBase.kt DisposableEffect(controller) block.
         // Each collector subscribes to per-state observables (asObservable / asFlow).
         // When a fingerprint changes, the targeted update*() is called instead of
@@ -199,6 +210,12 @@ export function MapLibreView({
           className={className}
           style={{ width: '100%', height: '100%' }}
         />
+        {animationEntries.length > 0 && typedControllerRef.current && (
+          <MarkerAnimationLayer
+            entries={animationEntries}
+            resolveScreenOffset={(entry) => typedControllerRef.current!.holder.toScreenOffset(entry.state.position)}
+          />
+        )}
         {bubbleEntries.length > 0 && typedControllerRef.current && (
           <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}>
             {bubbleEntries.map(entry => {
