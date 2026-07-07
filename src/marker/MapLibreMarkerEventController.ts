@@ -81,6 +81,7 @@ export class MapLibreMarkerEventController {
 
     event.preventDefault();
     const position = this.positionFromPointer(event);
+    selected.state.setPosition(position);
     this.controller.updateSelectedPosition(position);
     this.controller.dispatchDrag(selected.state);
   };
@@ -103,7 +104,9 @@ export class MapLibreMarkerEventController {
     }
 
     if (updatePosition) {
-      this.controller.updateSelectedPosition(this.positionFromPointer(event));
+      const position = this.positionFromPointer(event);
+      selected.state.setPosition(position);
+      this.controller.updateSelectedPosition(position);
     }
     await this.controller.setSelectedMarker(null);
     this.controller.dispatchDragEnd(selected.state);

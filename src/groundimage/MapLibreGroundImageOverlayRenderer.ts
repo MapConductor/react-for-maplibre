@@ -1,4 +1,4 @@
-import type { LayerSpecification, SourceSpecification } from 'maplibre-gl';
+import type { ImageSource, LayerSpecification, SourceSpecification } from 'maplibre-gl';
 import {
   AbstractGroundImageOverlayRenderer,
   type GroundImageEntity,
@@ -7,12 +7,16 @@ import {
 import { bringMarkerLayersToFront, groundImageCoordinates, removeLayerIfExists, removeSourceIfExists } from '../helpers';
 import { MapLibreMapViewHolder } from '../MapLibreMapViewHolder';
 
+type ImageCoordinates = Parameters<ImageSource['setCoordinates']>[0];
+
 // ActualGroundImage = string (stateId)
 export class MapLibreGroundImageOverlayRenderer extends AbstractGroundImageOverlayRenderer<
   MapLibreMapViewHolder,
   string
 > {
   private readonly canEditStyle: () => boolean;
+  /** Last values applied to the map style, keyed by state id. */
+  private readonly applied = new Map<string, { url: string; coordsKey: string; opacity: number }>();
 
   constructor({
     holder,
@@ -54,24 +58,56 @@ export class MapLibreGroundImageOverlayRenderer extends AbstractGroundImageOverl
     }
     bringMarkerLayersToFront(this.holder.map);
 
+    this.applied.set(state.id, {
+      url: state.imageUrl,
+      coordsKey: JSON.stringify(coordinates),
+      opacity: state.opacity,
+    });
     return state.id;
   }
 
   async updateGroundImageProperties({
-    groundImage,
     current,
-    prev,
   }: {
     groundImage: string;
     current: GroundImageEntity<string>;
     prev: GroundImageEntity<string>;
   }): Promise<string | null> {
-    // Image sources in MapLibre cannot be updated — remove and recreate
-    await this.removeGroundImage({ groundImage, state: prev.state, fingerPrint: prev.fingerPrint });
-    return this.createGroundImage(current.state);
+    if (!this.canEditStyle()) return null;
+
+    const state = current.state;
+    const sourceId = this.sourceId(state.id);
+    const layerId = this.layerId(state.id);
+    const source = this.holder.map.getSource(sourceId) as ImageSource | undefined;
+
+    // The style may have been swapped since creation — rebuild from scratch.
+    if (!source || !this.holder.map.getLayer(layerId)) {
+      removeLayerIfExists(this.holder.map, layerId);
+      removeSourceIfExists(this.holder.map, sourceId);
+      return this.createGroundImage(state);
+    }
+
+    const coordinates = groundImageCoordinates(state);
+    if (!coordinates) return null;
+
+    const prev = this.applied.get(state.id);
+    const coordsKey = JSON.stringify(coordinates);
+    if (!prev || prev.url !== state.imageUrl) {
+      source.updateImage({ url: state.imageUrl, coordinates: coordinates as ImageCoordinates });
+    } else if (prev.coordsKey !== coordsKey) {
+      // Bounds-only change: reposition without reloading the image.
+      source.setCoordinates(coordinates as ImageCoordinates);
+    }
+    if (!prev || prev.opacity !== state.opacity) {
+      this.holder.map.setPaintProperty(layerId, 'raster-opacity', state.opacity);
+    }
+
+    this.applied.set(state.id, { url: state.imageUrl, coordsKey, opacity: state.opacity });
+    return state.id;
   }
 
   async removeGroundImage(entity: GroundImageEntity<string>): Promise<void> {
+    this.applied.delete(entity.groundImage);
     if (!this.canEditStyle()) return;
     removeLayerIfExists(this.holder.map, this.layerId(entity.groundImage));
     removeSourceIfExists(this.holder.map, this.sourceId(entity.groundImage));
