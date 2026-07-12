@@ -47,3 +47,55 @@ fun markerStatesFromReadableArray(array: ReadableArray?): List<ReactNativeMarker
         }
     }
 }
+
+/**
+ * Decodes the compressed compositionMarkers() batch payload: structure-of-arrays with an icon
+ * dictionary (see `encodeMarkerBatch` on the JS side), instead of one ReadableMap per marker.
+ * This avoids ~7 hasKey/isNull/getX JNI calls per marker field that `fromReadableMap` needs, and
+ * avoids re-parsing an identical icon definition once per marker.
+ */
+fun markerStatesFromBatchReadableMap(payload: ReadableMap?): List<ReactNativeMarkerState> {
+    if (payload == null) return emptyList()
+    val ids = payload.getArray("ids") ?: return emptyList()
+    val positions = payload.getArray("positions") ?: return emptyList()
+    val clickableArr = payload.getArray("clickable")
+    val draggableArr = payload.getArray("draggable")
+    val zIndexArr = payload.getArray("zIndex")
+    val iconIndexArr = payload.getArray("iconIndex")
+    val animationArr = payload.getArray("animation")
+    val iconDict = payload.getArray("icons")
+    val icons: List<ReactNativeMarkerIcon?> =
+        if (iconDict == null) {
+            emptyList()
+        } else {
+            (0 until iconDict.size()).map { index -> ReactNativeMarkerIcon.fromReadableMap(iconDict.getMap(index)) }
+        }
+
+    return buildList {
+        for (index in 0 until ids.size()) {
+            val id = ids.getString(index) ?: continue
+            val iconIdx = iconIndexArr?.getInt(index) ?: -1
+            add(
+                ReactNativeMarkerState(
+                    id = id,
+                    position =
+                        GeoPoint(
+                            latitude = positions.getDouble(index * 3),
+                            longitude = positions.getDouble(index * 3 + 1),
+                            altitude = positions.getDouble(index * 3 + 2),
+                        ),
+                    clickable = clickableArr?.getBoolean(index) ?: true,
+                    draggable = draggableArr?.getBoolean(index) ?: false,
+                    zIndex = zIndexArr?.getDouble(index)?.toFloat(),
+                    icon = icons.getOrNull(iconIdx),
+                    animation =
+                        if (animationArr != null && !animationArr.isNull(index)) {
+                            runCatching { MarkerAnimation.valueOf(animationArr.getString(index) ?: "") }.getOrNull()
+                        } else {
+                            null
+                        },
+                ),
+            )
+        }
+    }
+}

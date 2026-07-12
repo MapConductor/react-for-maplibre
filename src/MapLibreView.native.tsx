@@ -12,7 +12,10 @@ import {
 } from '@mapconductor/js-sdk-react/native';
 import { MapLibreViewController } from './MapLibreViewController.native';
 import type { MapLibreViewProps } from './MapLibreViewProps.native';
-import NativeMapLibreView, { toNativeCameraPosition } from './MapLibreViewNativeComponent';
+import NativeMapLibreView, {
+  toNativeCameraPosition,
+  toNativeMarkerTilingOptions,
+} from './MapLibreViewNativeComponent';
 
 export function MapLibreView({
   state,
@@ -23,6 +26,7 @@ export function MapLibreView({
   onCameraMoveStart,
   onCameraMove,
   onCameraMoveEnd,
+  markerTilingOptions,
   children,
 }: MapLibreViewProps) {
   const nativeRef = useRef<React.ComponentRef<typeof NativeMapLibreView> | null>(null);
@@ -99,6 +103,7 @@ export function MapLibreView({
           style={StyleSheet.absoluteFill}
           cameraPosition={toNativeCameraPosition(initialCameraPositionRef.current)}
           mapDesignType={state.mapDesignType.getValue()}
+          markerTilingOptions={toNativeMarkerTilingOptions(markerTilingOptions)}
           infoBubblePositions={infoBubblePositions}
           onMapLoaded={() => controller.onNativeMapLoaded()}
           onMapClick={(event) => controller.onNativeMapClick(GeoPoint.from(event.nativeEvent.point))}

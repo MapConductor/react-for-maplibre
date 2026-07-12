@@ -36,6 +36,14 @@ class MapConductorMapLibreViewManager : SimpleViewManager<MapLibreMapViewWrapper
         view.setInfoBubblePositions(positions)
     }
 
+    @ReactProp(name = "markerTilingOptions")
+    fun setMarkerTilingOptions(
+        view: MapLibreMapViewWrapper,
+        options: ReadableMap?,
+    ) {
+        view.setMarkerTilingOptions(options)
+    }
+
     override fun receiveCommand(
         root: MapLibreMapViewWrapper,
         commandId: String,
@@ -46,7 +54,7 @@ class MapConductorMapLibreViewManager : SimpleViewManager<MapLibreMapViewWrapper
             "animateCamera" -> root.animateCamera(args?.getMap(0), args?.getInt(1) ?: 0)
             "fitBounds" -> root.fitBounds(args?.getMap(0), args?.getInt(1) ?: 0)
             "clearOverlays" -> root.clearOverlays()
-            "compositionMarkers" -> root.compositionMarkers(args?.getArray(0))
+            "compositionMarkers" -> root.compositionMarkers(args?.getMap(0))
             "updateMarker" -> root.updateMarker(args?.getMap(0))
         }
     }

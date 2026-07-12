@@ -21,16 +21,22 @@ import com.mapconductor.core.ResourceProvider
 import com.mapconductor.core.features.GeoPoint
 import com.mapconductor.core.map.MapCameraPosition
 import com.mapconductor.core.marker.MarkerState
+import com.mapconductor.core.marker.MarkerTilingOptions
 import com.mapconductor.maplibre.MapLibreMapView
 import com.mapconductor.maplibre.MapLibreViewState
 import com.mapconductor.react.maplibre.marker.ReactNativeMarkerState
 import com.mapconductor.react.maplibre.marker.fromReadableMap
-import com.mapconductor.react.maplibre.marker.markerStatesFromReadableArray
+import com.mapconductor.react.maplibre.marker.markerStatesFromBatchReadableMap
 import com.mapconductor.react.maplibre.marker.toMarkerIcon
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.UUID
+import java.util.concurrent.Executors
 import com.mapconductor.maplibre.MapLibreDesign as ComposeMapLibreDesign
 
 private data class MapLibreWrapperInfoBubblePosition(
@@ -41,13 +47,28 @@ private data class MapLibreWrapperInfoBubblePosition(
 class MapLibreMapViewWrapper(context: Context) :
     FrameLayout(context) {
 
+    companion object {
+        // Shared across all wrapper instances, one background thread. ReadableArray/ReadableMap
+        // parsing and marker-icon decoding (JNI + bitmap I/O) happen here instead of the UI
+        // thread, so a large compositionMarkers() batch (e.g. 20k+ markers) doesn't freeze the
+        // map screen while it loads. Single-threaded so that commits from overlapping
+        // compositionMarkers/updateMarker/clearOverlays calls on the same view are applied to
+        // `markerStates` in the order React Native issued them.
+        private val markerIngestDispatcher: CoroutineDispatcher =
+            Executors.newSingleThreadExecutor { r ->
+                Thread(r, "MapLibreMarkerIngest").apply { isDaemon = true }
+            }.asCoroutineDispatcher()
+    }
+
     private val mainCoroutine: CoroutineScope = CoroutineScope(Dispatchers.Main)
+    private val markerCoroutine: CoroutineScope = CoroutineScope(markerIngestDispatcher)
     private val composeView = ComposeView(context)
     private val mapViewState = MapLibreViewState(
         id = "maplibre-${UUID.randomUUID()}",
         mapDesignType = ComposeMapLibreDesign.DemoTiles
     )
     private var markerStates by mutableStateOf<Map<String, MarkerState>>(emptyMap())
+    private var markerTilingOptions by mutableStateOf(MarkerTilingOptions.Default)
     private var infoBubblePositions: List<MapLibreWrapperInfoBubblePosition> = emptyList()
 
     init {
@@ -65,6 +86,7 @@ class MapLibreMapViewWrapper(context: Context) :
             MapLibreMapView(
                 state = mapViewState,
                 modifier = Modifier.fillMaxSize(),
+                markerTiling = markerTilingOptions,
                 onMapLoaded = {
                     emit("topMapLoaded", Arguments.createMap())
                     emitMarkerScreenPositions()
@@ -134,32 +156,54 @@ class MapLibreMapViewWrapper(context: Context) :
         emitInfoBubbleScreenPositions()
     }
 
-    fun clearOverlays() {
-        markerStates = emptyMap()
-        infoBubblePositions = emptyList()
-        emitMarkerScreenPositions()
-        emitInfoBubbleScreenPositions()
+    fun setMarkerTilingOptions(options: ReadableMap?) {
+        markerTilingOptions = markerTilingOptionsFromReadableMap(options)
     }
 
-    fun compositionMarkers(markers: ReadableArray?) {
-        markerStates =
-            markerStatesFromReadableArray(markers)
-                .associate { it.id to it.toCoreMarkerState(markerStates[it.id]) }
-        emitMarkerScreenPositions()
-        emitInfoBubbleScreenPositions()
+    fun clearOverlays() {
+        // Routed through markerCoroutine so it's ordered against any in-flight
+        // compositionMarkers/updateMarker call on the same queue.
+        markerCoroutine.launch {
+            withContext(Dispatchers.Main) {
+                markerStates = emptyMap()
+                infoBubblePositions = emptyList()
+                emitMarkerScreenPositions()
+                emitInfoBubbleScreenPositions()
+            }
+        }
+    }
+
+    fun compositionMarkers(payload: ReadableMap?) {
+        val previousStates = markerStates
+        markerCoroutine.launch {
+            val nextStates =
+                markerStatesFromBatchReadableMap(payload)
+                    .associate { it.id to it.toCoreMarkerState(previousStates[it.id]) }
+            withContext(Dispatchers.Main) {
+                markerStates = nextStates
+                emitMarkerScreenPositions()
+                emitInfoBubbleScreenPositions()
+            }
+        }
     }
 
     fun updateMarker(marker: ReadableMap?) {
-        val state = ReactNativeMarkerState.fromReadableMap(marker) ?: return
-        val previous = markerStates[state.id]
-        val next = state.toCoreMarkerState(previous)
-        markerStates = markerStates + (state.id to next)
-        state.animation?.let(next::animate)
-        emitMarkerScreenPositions()
-        emitInfoBubbleScreenPositions()
+        val previousStates = markerStates
+        markerCoroutine.launch {
+            val state = ReactNativeMarkerState.fromReadableMap(marker) ?: return@launch
+            val next = state.toCoreMarkerState(previousStates[state.id])
+            withContext(Dispatchers.Main) {
+                markerStates = markerStates + (state.id to next)
+                state.animation?.let(next::animate)
+                emitMarkerScreenPositions()
+                emitInfoBubbleScreenPositions()
+            }
+        }
     }
 
-    fun onDropViewInstance() {}
+    fun onDropViewInstance() {
+        markerCoroutine.cancel()
+    }
 
     override fun onLayout(
         changed: Boolean,
@@ -193,6 +237,13 @@ class MapLibreMapViewWrapper(context: Context) :
 
     private fun emitMarkerScreenPositions() {
         mainCoroutine.launch {
+            if (markerStates.size >= markerTilingOptions.minMarkerCount) {
+                emit(
+                    "topMarkerScreenPositions",
+                    Arguments.createMap().apply { putArray("positions", Arguments.createArray()) },
+                )
+                return@launch
+            }
             val density = ResourceProvider.getDensity()
             val holder = mapViewState.getMapViewHolder() ?: return@launch
             val array =
@@ -234,6 +285,7 @@ class MapLibreMapViewWrapper(context: Context) :
     }
 
     private fun ReactNativeMarkerState.toCoreMarkerState(previous: MarkerState?): MarkerState {
+        val resolvedIcon = icon?.toMarkerIcon(context)
         val next =
             previous ?: MarkerState(
                 id = id,
@@ -241,7 +293,7 @@ class MapLibreMapViewWrapper(context: Context) :
                 clickable = clickable,
                 draggable = draggable,
                 zIndex = zIndex?.toInt(),
-                icon = icon?.toMarkerIcon(context),
+                icon = resolvedIcon,
                 onClick = {
                     emit("topMarkerClick", Arguments.createMap().apply { putString("markerId", id) })
                 },
@@ -251,7 +303,7 @@ class MapLibreMapViewWrapper(context: Context) :
         next.clickable = clickable
         next.draggable = draggable
         next.zIndex = zIndex?.toInt()
-        next.icon = icon?.toMarkerIcon(context)
+        next.icon = resolvedIcon
         next.onClick =
             if (clickable) {
                 {
@@ -262,6 +314,17 @@ class MapLibreMapViewWrapper(context: Context) :
             }
         return next
     }
+}
+
+private fun markerTilingOptionsFromReadableMap(map: ReadableMap?): MarkerTilingOptions {
+    if (map == null) return MarkerTilingOptions.Default
+    return MarkerTilingOptions.Default.copy(
+        enabled = map.getBooleanOrNull("enabled") ?: MarkerTilingOptions.Default.enabled,
+        debugTileOverlay = map.getBooleanOrNull("debugTileOverlay")
+            ?: MarkerTilingOptions.Default.debugTileOverlay,
+        minMarkerCount = map.getIntOrNull("minMarkerCount") ?: MarkerTilingOptions.Default.minMarkerCount,
+        cacheSize = map.getIntOrNull("cacheSize") ?: MarkerTilingOptions.Default.cacheSize,
+    )
 }
 
 private class MapLibreMapViewWrapperEvent(

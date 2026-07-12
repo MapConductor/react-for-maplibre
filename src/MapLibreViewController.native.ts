@@ -12,6 +12,7 @@ import {
   type MapViewControllerInterface,
   type OnMarkerEventHandler,
 } from '@mapconductor/js-sdk-core';
+import { encodeMarkerBatch } from '@mapconductor/js-sdk-react/native';
 import { MapLibreMapViewHolder } from './MapLibreMapViewHolder.native';
 import type { MapLibreMapViewRef } from './MapLibreTypeAlias.native';
 import { markerStateToNative } from './marker/MapLibreMarkerController.native';
@@ -75,7 +76,7 @@ export class MapLibreViewController
   async compositionMarkers(data: MarkerState[]): Promise<void> {
     this.markerStates.clear();
     data.forEach((state) => this.markerStates.set(state.id, state));
-    this.dispatchCommand('compositionMarkers', [data.map(markerStateToNative)]);
+    this.dispatchCommand('compositionMarkers', [encodeMarkerBatch(data)]);
   }
 
   async updateMarker(state: MarkerState): Promise<void> {
