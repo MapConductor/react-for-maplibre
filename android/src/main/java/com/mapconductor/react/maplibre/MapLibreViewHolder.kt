@@ -2,6 +2,7 @@ package com.mapconductor.react.maplibre
 
 import android.graphics.PointF
 import com.mapconductor.core.features.GeoPoint
+import com.mapconductor.maplibre.toLatLng
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.maps.MapView
 

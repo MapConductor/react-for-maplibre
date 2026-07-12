@@ -8,6 +8,8 @@ import com.mapconductor.core.features.GeoPointInterface
 import com.mapconductor.core.features.GeoRectBounds
 import com.mapconductor.core.map.MapCameraPosition
 import com.mapconductor.core.map.VisibleRegion
+import com.mapconductor.maplibre.toGeoPoint
+import com.mapconductor.maplibre.toLatLng
 import org.maplibre.android.camera.CameraPosition
 
 private const val MAPLIBRE_TO_GOOGLE_ZOOM_OFFSET = 1.0
