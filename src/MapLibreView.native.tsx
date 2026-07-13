@@ -3,6 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { GeoPoint, MapCameraPosition } from '@mapconductor/js-sdk-core';
 import {
   InfoBubbleLayer,
+  MapContext,
   MapViewScope,
   MapViewScopeProvider,
   type InfoBubblePositionRequest,
@@ -44,6 +45,7 @@ export function MapLibreView({
     () => new Map()
   );
   const [infoBubblePositions, setInfoBubblePositions] = useState<InfoBubblePositionRequest[]>([]);
+  const [isReady, setIsReady] = useState(false);
   const [infoBubbleScreenPositions, setInfoBubbleScreenPositions] =
     useState<InfoBubbleScreenPositionMap>(() => new Map());
 
@@ -55,9 +57,15 @@ export function MapLibreView({
         void controller.updateMarker(marker);
       }
     });
+    scope.rasterLayerCollector.setUpdateHandler((rasterLayer) => {
+      if (controller.hasRasterLayer(rasterLayer)) {
+        void controller.updateRasterLayer(rasterLayer);
+      }
+    });
 
     return () => {
       scope.markerCollector.setUpdateHandler(null);
+      scope.rasterLayerCollector.setUpdateHandler(null);
     };
   }, [controller, scope]);
 
@@ -96,7 +104,8 @@ export function MapLibreView({
   }, [controller, state]);
 
   return (
-    <MapViewScopeProvider scope={scope}>
+    <MapContext.Provider value={{ controller, isReady }}>
+      <MapViewScopeProvider scope={scope}>
       <View style={style ?? { flex: 1 }}>
         <NativeMapLibreView
           ref={nativeRef}
@@ -105,7 +114,10 @@ export function MapLibreView({
           mapDesignType={state.mapDesignType.getValue()}
           markerTilingOptions={toNativeMarkerTilingOptions(markerTilingOptions)}
           infoBubblePositions={infoBubblePositions}
-          onMapLoaded={() => controller.onNativeMapLoaded()}
+          onMapLoaded={() => {
+            setIsReady(true);
+            controller.onNativeMapLoaded();
+          }}
           onMapClick={(event) => controller.onNativeMapClick(GeoPoint.from(event.nativeEvent.point))}
           onMapLongClick={(event) =>
             controller.onNativeMapLongClick(GeoPoint.from(event.nativeEvent.point))
@@ -160,6 +172,9 @@ export function MapLibreView({
               )
             );
           }}
+          onNativeMapExtensionEvent={(event) =>
+            controller?.onNativeMapExtensionEvent(event.nativeEvent)
+          }
         />
         <InfoBubbleLayer
           scope={scope}
@@ -169,6 +184,7 @@ export function MapLibreView({
         />
         {children}
       </View>
-    </MapViewScopeProvider>
+      </MapViewScopeProvider>
+    </MapContext.Provider>
   );
 }

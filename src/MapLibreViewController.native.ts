@@ -11,23 +11,40 @@ import {
   type MapCameraPosition,
   type MapViewControllerInterface,
   type OnMarkerEventHandler,
+  type RasterLayerCapable,
+  type RasterLayerState,
 } from '@mapconductor/js-sdk-core';
 import { encodeMarkerBatch } from '@mapconductor/js-sdk-react/native';
+import type {
+  NativeMapExtensionCapable,
+  NativeMapExtensionDescriptor,
+  NativeMapExtensionEvent,
+  NativeMapExtensionEventHandler,
+} from '@mapconductor/js-sdk-react/native';
 import { MapLibreMapViewHolder } from './MapLibreMapViewHolder.native';
 import type { MapLibreMapViewRef } from './MapLibreTypeAlias.native';
 import { markerStateToNative } from './marker/MapLibreMarkerController.native';
 
 export class MapLibreViewController
   extends BaseMapViewController
-  implements MapViewControllerInterface, MarkerCapable
+  implements
+    MapViewControllerInterface,
+    MarkerCapable,
+    RasterLayerCapable,
+    NativeMapExtensionCapable
 {
   readonly holder: MapLibreMapViewHolder;
   private cameraPosition: MapCameraPosition;
   private readonly markerStates = new Map<string, MarkerState>();
+  private readonly rasterLayerStates = new Map<string, RasterLayerState>();
   private markerClickListener: OnMarkerEventHandler | null = null;
   private markerDragStartListener: OnMarkerEventHandler | null = null;
   private markerDragListener: OnMarkerEventHandler | null = null;
   private markerDragEndListener: OnMarkerEventHandler | null = null;
+  private readonly nativeMapExtensionEventHandlers = new Map<
+    string,
+    NativeMapExtensionEventHandler
+  >();
 
   constructor(
     private readonly nativeRef: React.RefObject<MapLibreMapViewRef | null>,
@@ -84,6 +101,46 @@ export class MapLibreViewController
     this.dispatchCommand('updateMarker', [markerStateToNative(state)]);
   }
 
+  async compositionRasterLayers(data: RasterLayerState[]): Promise<void> {
+    this.rasterLayerStates.clear();
+    data.forEach((state) => this.rasterLayerStates.set(state.id, state));
+    this.dispatchCommand('compositionRasterLayers', [data.map(rasterLayerStateToNative)]);
+  }
+
+  async updateRasterLayer(state: RasterLayerState): Promise<void> {
+    this.rasterLayerStates.set(state.id, state);
+    this.dispatchCommand('updateRasterLayer', [rasterLayerStateToNative(state)]);
+  }
+
+  hasRasterLayer(state: RasterLayerState): boolean {
+    return this.rasterLayerStates.has(state.id);
+  }
+
+  upsertNativeMapExtension(
+    extension: NativeMapExtensionDescriptor,
+    eventHandler?: NativeMapExtensionEventHandler | null
+  ): void {
+    if (eventHandler) {
+      this.nativeMapExtensionEventHandlers.set(extension.id, eventHandler);
+    } else {
+      this.nativeMapExtensionEventHandlers.delete(extension.id);
+    }
+    this.dispatchCommand('upsertNativeMapExtension', [
+      extension.id,
+      extension.type,
+      extension.payload,
+    ]);
+  }
+
+  removeNativeMapExtension(extensionId: string): void {
+    this.nativeMapExtensionEventHandlers.delete(extensionId);
+    this.dispatchCommand('removeNativeMapExtension', [extensionId]);
+  }
+
+  onNativeMapExtensionEvent(event: NativeMapExtensionEvent): void {
+    this.nativeMapExtensionEventHandlers.get(event.extensionId)?.(event);
+  }
+
   hasMarker(state: MarkerState): boolean {
     return this.markerStates.has(state.id);
   }
@@ -115,6 +172,7 @@ export class MapLibreViewController
   setMarkerAnimationOverlayHost(_host: MarkerAnimationOverlayHost | null): void {}
 
   destroy(): void {
+    this.nativeMapExtensionEventHandlers.clear();
     this.setCameraMoveStartListener(null);
     this.setCameraMoveListener(null);
     this.setCameraMoveEndListener(null);
@@ -186,4 +244,17 @@ export class MapLibreViewController
     if (!node) return;
     UIManager.dispatchViewManagerCommand(node, commandName, args);
   }
+}
+
+function rasterLayerStateToNative(state: RasterLayerState) {
+  return {
+    id: state.id,
+    source: state.source,
+    opacity: state.opacity,
+    visible: state.visible,
+    zIndex: state.zIndex,
+    userAgent: state.userAgent,
+    debug: state.debug,
+    extraHeaders: state.extraHeaders,
+  };
 }

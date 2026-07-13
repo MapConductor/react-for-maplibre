@@ -17,6 +17,7 @@ import com.facebook.react.bridge.WritableMap
 import com.facebook.react.uimanager.UIManagerHelper
 import com.facebook.react.uimanager.events.Event
 import com.mapconductor.compose.marker.Markers
+import com.mapconductor.react.extensions.NativeMapExtensionHostState
 import com.mapconductor.core.ResourceProvider
 import com.mapconductor.core.features.GeoPoint
 import com.mapconductor.core.map.MapCameraPosition
@@ -24,10 +25,13 @@ import com.mapconductor.core.marker.MarkerState
 import com.mapconductor.core.marker.MarkerTilingOptions
 import com.mapconductor.maplibre.MapLibreMapView
 import com.mapconductor.maplibre.MapLibreViewState
+import com.mapconductor.maplibre.raster.MapLibreRasterLayerController
 import com.mapconductor.react.maplibre.marker.ReactNativeMarkerState
 import com.mapconductor.react.maplibre.marker.fromReadableMap
 import com.mapconductor.react.maplibre.marker.markerStatesFromBatchReadableMap
 import com.mapconductor.react.maplibre.marker.toMarkerIcon
+import com.mapconductor.react.raster.rasterLayerStateFromReadableMap
+import com.mapconductor.react.raster.rasterLayerStatesFromReadableArray
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -68,8 +72,21 @@ class MapLibreMapViewWrapper(context: Context) :
         mapDesignType = ComposeMapLibreDesign.DemoTiles
     )
     private var markerStates by mutableStateOf<Map<String, MarkerState>>(emptyMap())
+    private var rasterLayerController: MapLibreRasterLayerController? = null
+    private var rasterLayerStates: Map<String, com.mapconductor.core.raster.RasterLayerState> = emptyMap()
     private var markerTilingOptions by mutableStateOf(MarkerTilingOptions.Default)
     private var infoBubblePositions: List<MapLibreWrapperInfoBubblePosition> = emptyList()
+    private val nativeMapExtensionHost =
+        NativeMapExtensionHostState(context) { extensionId, eventName, payload ->
+            emit(
+                "topNativeMapExtensionEvent",
+                Arguments.createMap().apply {
+                    putString("extensionId", extensionId)
+                    putString("eventName", eventName)
+                    putMap("payload", payload)
+                },
+            )
+        }
 
     init {
         ResourceProvider.init(context)
@@ -88,6 +105,11 @@ class MapLibreMapViewWrapper(context: Context) :
                 modifier = Modifier.fillMaxSize(),
                 markerTiling = markerTilingOptions,
                 onMapLoaded = {
+                    rasterLayerController =
+                        mapViewState.getControllers()?.get("raster_layer") as? MapLibreRasterLayerController
+                    mainCoroutine.launch {
+                        rasterLayerController?.add(rasterLayerStates.values.toList())
+                    }
                     emit("topMapLoaded", Arguments.createMap())
                     emitMarkerScreenPositions()
                     emitInfoBubbleScreenPositions()
@@ -109,6 +131,7 @@ class MapLibreMapViewWrapper(context: Context) :
                 },
             ) {
                 Markers(markerStates.values.toList())
+                with(nativeMapExtensionHost) { RenderExtensions() }
             }
         }
     }
@@ -201,7 +224,37 @@ class MapLibreMapViewWrapper(context: Context) :
         }
     }
 
+    fun compositionRasterLayers(layers: ReadableArray?) {
+        val states = rasterLayerStatesFromReadableArray(layers)
+        rasterLayerStates = states.associateBy { it.id }
+        mainCoroutine.launch {
+            rasterLayerController?.clear()
+            rasterLayerController?.add(states)
+        }
+    }
+
+    fun updateRasterLayer(layer: ReadableMap?) {
+        val state = rasterLayerStateFromReadableMap(layer) ?: return
+        rasterLayerStates = rasterLayerStates + (state.id to state)
+        mainCoroutine.launch {
+            rasterLayerController?.update(state)
+        }
+    }
+
+    fun upsertNativeMapExtension(
+        extensionId: String,
+        type: String,
+        payload: ReadableMap?,
+    ) {
+        nativeMapExtensionHost.upsert(extensionId, type, payload)
+    }
+
+    fun removeNativeMapExtension(extensionId: String) {
+        nativeMapExtensionHost.remove(extensionId)
+    }
+
     fun onDropViewInstance() {
+        nativeMapExtensionHost.clear()
         markerCoroutine.cancel()
     }
 
