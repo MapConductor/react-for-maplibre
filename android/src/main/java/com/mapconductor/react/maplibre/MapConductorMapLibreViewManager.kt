@@ -12,6 +12,11 @@ class MapConductorMapLibreViewManager : SimpleViewManager<MapLibreMapViewWrapper
     override fun createViewInstance(reactContext: ThemedReactContext): MapLibreMapViewWrapper =
         MapLibreMapViewWrapper(reactContext)
 
+    override fun onAfterUpdateTransaction(view: MapLibreMapViewWrapper) {
+        super.onAfterUpdateTransaction(view)
+        view.initializeMapIfNeeded()
+    }
+
     @ReactProp(name = "cameraPosition")
     fun setCameraPosition(
         view: MapLibreMapViewWrapper,
@@ -55,6 +60,18 @@ class MapConductorMapLibreViewManager : SimpleViewManager<MapLibreMapViewWrapper
             "fitBounds" -> root.fitBounds(args?.getMap(0), args?.getInt(1) ?: 0)
             "clearOverlays" -> root.clearOverlays()
             "compositionMarkers" -> root.compositionMarkers(args?.getMap(0))
+            "beginMarkerComposition" ->
+                root.beginMarkerComposition(
+                    generation = args?.getInt(0) ?: return,
+                    iconDictionary = if (args.size() > 1 && !args.isNull(1)) args.getArray(1) else null,
+                )
+            "appendMarkerComposition" ->
+                root.appendMarkerComposition(
+                    generation = args?.getInt(0) ?: return,
+                    sequence = args.getInt(1),
+                    payload = args.getMap(2),
+                )
+            "commitMarkerComposition" -> root.commitMarkerComposition(args?.getInt(0) ?: return)
             "updateMarker" -> root.updateMarker(args?.getMap(0))
             "compositionRasterLayers" -> root.compositionRasterLayers(args?.getArray(0))
             "updateRasterLayer" -> root.updateRasterLayer(args?.getMap(0))
@@ -77,6 +94,8 @@ class MapConductorMapLibreViewManager : SimpleViewManager<MapLibreMapViewWrapper
     override fun getExportedCustomDirectEventTypeConstants(): MutableMap<String, Any> =
         mutableMapOf(
             "topMapLoaded" to mapOf("registrationName" to "onMapLoaded"),
+            "topMarkerCompositionBatchProcessed" to
+                mapOf("registrationName" to "onMarkerCompositionBatchProcessed"),
             "topMapClick" to mapOf("registrationName" to "onMapClick"),
             "topMapLongClick" to mapOf("registrationName" to "onMapLongClick"),
             "topCameraMoveStart" to mapOf("registrationName" to "onCameraMoveStart"),

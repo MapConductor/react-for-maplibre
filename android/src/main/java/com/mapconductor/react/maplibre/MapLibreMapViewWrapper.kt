@@ -1,13 +1,12 @@
 package com.mapconductor.react.maplibre
 
 import android.content.Context
+import android.os.SystemClock
+import android.util.Log
 import android.widget.FrameLayout
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.platform.ComposeView
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.ReactContext
@@ -16,22 +15,46 @@ import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.bridge.WritableMap
 import com.facebook.react.uimanager.UIManagerHelper
 import com.facebook.react.uimanager.events.Event
-import com.mapconductor.compose.marker.Markers
-import com.mapconductor.react.extensions.NativeMapExtensionHostState
+import com.mapconductor.compose.CollectAndRenderOverlays
+import com.mapconductor.compose.MapViewScope
+import com.mapconductor.compose.circle.LocalCircleCollector
+import com.mapconductor.compose.groundimage.LocalGroundImageCollector
+import com.mapconductor.compose.info.LocalInfoBubbleCollector
+import com.mapconductor.compose.polygon.LocalPolygonCollector
+import com.mapconductor.compose.polyline.LocalPolylineCollector
+import com.mapconductor.compose.raster.LocalRasterLayerCollector
 import com.mapconductor.core.ResourceProvider
+import com.mapconductor.core.circle.CircleCapableInterface
 import com.mapconductor.core.features.GeoPoint
+import com.mapconductor.core.groundimage.GroundImageCapableInterface
+import com.mapconductor.core.map.LocalMapOverlayRegistry
+import com.mapconductor.core.map.LocalMapServiceRegistry
+import com.mapconductor.core.map.LocalMapViewController
 import com.mapconductor.core.map.MapCameraPosition
+import com.mapconductor.core.map.MapOverlayRegistry
+import com.mapconductor.core.map.MutableMapServiceRegistry
+import com.mapconductor.core.marker.MarkerOverlay
+import com.mapconductor.core.marker.MarkerIconInterface
 import com.mapconductor.core.marker.MarkerState
 import com.mapconductor.core.marker.MarkerTilingOptions
-import com.mapconductor.maplibre.MapLibreMapView
-import com.mapconductor.maplibre.MapLibreViewState
-import com.mapconductor.maplibre.raster.MapLibreRasterLayerController
+import com.mapconductor.core.polygon.PolygonCapableInterface
+import com.mapconductor.core.polyline.PolylineCapableInterface
+import com.mapconductor.core.raster.RasterLayerCapableInterface
+import com.mapconductor.maplibre.MapLibreMapViewHolder
+import com.mapconductor.maplibre.MapLibreMapViewHolderInterface
+import com.mapconductor.maplibre.MapLibreMapViewScope
+import com.mapconductor.maplibre.MapLibreViewController
+import com.mapconductor.maplibre.createMapLibreViewController
+import com.mapconductor.maplibre.toCameraPosition
+import com.mapconductor.react.extensions.NativeMapExtensionHostState
 import com.mapconductor.react.maplibre.marker.ReactNativeMarkerState
+import com.mapconductor.react.maplibre.marker.ReactNativeMarkerIcon
 import com.mapconductor.react.maplibre.marker.fromReadableMap
 import com.mapconductor.react.maplibre.marker.markerStatesFromBatchReadableMap
 import com.mapconductor.react.maplibre.marker.toMarkerIcon
 import com.mapconductor.react.raster.rasterLayerStateFromReadableMap
 import com.mapconductor.react.raster.rasterLayerStatesFromReadableArray
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -39,8 +62,10 @@ import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.UUID
 import java.util.concurrent.Executors
+import org.maplibre.android.MapLibre
+import org.maplibre.android.maps.MapLibreMapOptions
+import org.maplibre.android.maps.MapView
 import com.mapconductor.maplibre.MapLibreDesign as ComposeMapLibreDesign
 
 private data class MapLibreWrapperInfoBubblePosition(
@@ -66,16 +91,46 @@ class MapLibreMapViewWrapper(context: Context) :
 
     private val mainCoroutine: CoroutineScope = CoroutineScope(Dispatchers.Main)
     private val markerCoroutine: CoroutineScope = CoroutineScope(markerIngestDispatcher)
-    private val composeView = ComposeView(context)
-    private val mapViewState = MapLibreViewState(
-        id = "maplibre-${UUID.randomUUID()}",
-        mapDesignType = ComposeMapLibreDesign.DemoTiles
-    )
-    private var markerStates by mutableStateOf<Map<String, MarkerState>>(emptyMap())
-    private var rasterLayerController: MapLibreRasterLayerController? = null
+    private val extensionComposeView = ComposeView(context)
+    private val extensionScope = MapLibreMapViewScope()
+    private val extensionRegistry =
+        MapOverlayRegistry().apply {
+            extensionScope
+                .buildRegistry()
+                .getAll()
+                .filterNot { it is MarkerOverlay }
+                .forEach(::register)
+        }
+    private val extensionServiceRegistry = MutableMapServiceRegistry()
+    private var mapView: MapView? = null
+    private var mapHolder: MapLibreMapViewHolderInterface? = null
+
+    // Read from the main thread (camera/lifecycle callbacks) and from markerCoroutine's
+    // background thread (compositionMarkers/updateMarker). Plain `var` gives the JVM no
+    // happens-before edge between onDropViewInstance()'s write and a marker-coroutine read,
+    // so the background thread can observe a stale non-null reference to an already
+    // torn-down controller under GC pressure; @Volatile forces the write to be visible
+    // as soon as it happens instead of at some unspecified later point.
+    @Volatile
+    private var mapController: MapLibreViewController? = null
+    private var initialized = false
+    private var pendingCameraPosition = MapCameraPosition.Default
+    private var pendingMapDesign = ComposeMapLibreDesign.DemoTiles
+    private var markerStates: Map<String, MarkerState> = emptyMap()
+    private var markerCompositionGeneration: Int? = null
+    private val markerCompositionBuffer = mutableMapOf<String, MarkerState>()
+    private var markerCompositionIcons: List<MarkerIconInterface?> = emptyList()
     private var rasterLayerStates: Map<String, com.mapconductor.core.raster.RasterLayerState> = emptyMap()
-    private var markerTilingOptions by mutableStateOf(MarkerTilingOptions.Default)
+    private var markerTilingOptions = MarkerTilingOptions.Default
     private var infoBubblePositions: List<MapLibreWrapperInfoBubblePosition> = emptyList()
+
+    // Camera listeners fire on every frame during pan/zoom. When there is nothing to
+    // report (marker tiling active, no markers, no open info bubbles), emitting an empty
+    // positions payload every frame floods the bridge and forces a JS setState per frame,
+    // so an empty payload is emitted once as a clearing event and then suppressed until
+    // there is data again. Both flags are only touched on the main thread.
+    private var emittedEmptyMarkerScreenPositions = false
+    private var emittedEmptyInfoBubbleScreenPositions = false
     private val nativeMapExtensionHost =
         NativeMapExtensionHostState(context) { extensionId, eventName, payload ->
             emit(
@@ -89,78 +144,102 @@ class MapLibreMapViewWrapper(context: Context) :
         }
 
     init {
+        markerTrace("wrapper init")
         ResourceProvider.init(context)
 
+        extensionComposeView.isClickable = false
+        extensionComposeView.isFocusable = false
         addView(
-            composeView,
+            extensionComposeView,
             LayoutParams(
                 LayoutParams.MATCH_PARENT,
                 LayoutParams.MATCH_PARENT
             )
         )
+    }
 
-        composeView.setContent {
-            MapLibreMapView(
-                state = mapViewState,
-                modifier = Modifier.fillMaxSize(),
-                markerTiling = markerTilingOptions,
-                onMapLoaded = {
-                    rasterLayerController =
-                        mapViewState.getControllers()?.get("raster_layer") as? MapLibreRasterLayerController
-                    mainCoroutine.launch {
-                        rasterLayerController?.add(rasterLayerStates.values.toList())
-                    }
-                    emit("topMapLoaded", Arguments.createMap())
-                    emitMarkerScreenPositions()
-                    emitInfoBubbleScreenPositions()
-                },
-                onCameraMoveStart = {
-                    emitCameraEvent("topCameraMoveStart", it)
-                    emitMarkerScreenPositions()
-                    emitInfoBubbleScreenPositions()
-                },
-                onCameraMove = {
-                    emitCameraEvent("topCameraMove", it)
-                    emitMarkerScreenPositions()
-                    emitInfoBubbleScreenPositions()
-                },
-                onCameraMoveEnd = {
-                    emitCameraEvent("topCameraMoveEnd", it)
-                    emitMarkerScreenPositions()
-                    emitInfoBubbleScreenPositions()
-                },
-            ) {
-                Markers(markerStates.values.toList())
-                with(nativeMapExtensionHost) { RenderExtensions() }
+    fun initializeMapIfNeeded() {
+        if (initialized) return
+        initialized = true
+        MapLibre.getInstance(context)
+
+        val nativeMapView =
+            MapView(
+                context,
+                MapLibreMapOptions
+                    .createFromAttributes(context)
+                    .camera(pendingCameraPosition.toCameraPosition())
+                    .textureMode(true),
+            )
+        mapView = nativeMapView
+        addView(
+            nativeMapView,
+            0,
+            LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT),
+        )
+
+        nativeMapView.getMapAsync { map ->
+            map.setStyle(pendingMapDesign.styleJsonURL) {
+                if (!initialized) return@setStyle
+                val holder = MapLibreMapViewHolder(nativeMapView, map)
+                val controller =
+                    createMapLibreViewController(
+                        holder = holder,
+                        markerTiling = markerTilingOptions,
+                        serviceRegistry = extensionServiceRegistry,
+                    )
+                mapHolder = holder
+                mapController = controller
+                configureController(controller)
+                extensionComposeView.setContent {
+                    RenderNativeExtensions(
+                        scope = extensionScope,
+                        registry = extensionRegistry,
+                        controller = controller,
+                        serviceRegistry = extensionServiceRegistry,
+                        host = nativeMapExtensionHost,
+                    )
+                }
+                markerCoroutine.launch {
+                    runMarkerControllerCall { controller.compositionMarkers(markerStates.values.toList()) }
+                }
+                markerTrace("SDK onMapLoaded callback")
+                emit("topMapLoaded", Arguments.createMap())
+                emitMarkerScreenPositions()
+                emitInfoBubbleScreenPositions()
+                nativeMapView.post { controller.sendInitialCameraUpdate() }
             }
         }
     }
 
     fun setCameraPosition(cameraPosition: ReadableMap?) {
-        mapViewState.moveCameraTo(MapCameraPosition.fromReadableMap(cameraPosition), null)
+        pendingCameraPosition = MapCameraPosition.fromReadableMap(cameraPosition)
+        mapController?.moveCamera(pendingCameraPosition)
     }
 
     fun setMapDesignType(mapDesignType: String?) {
         val styleUrl = MapLibreDesign.styleUrlFrom(mapDesignType)
-        mapViewState.mapDesignType = ComposeMapLibreDesign(id = styleUrl, styleJsonURL = styleUrl)
+        pendingMapDesign = ComposeMapLibreDesign(id = styleUrl, styleJsonURL = styleUrl)
+        mapController?.setMapDesignType(pendingMapDesign)
     }
 
     fun moveCamera(cameraPosition: ReadableMap?) {
-        mapViewState.moveCameraTo(MapCameraPosition.fromReadableMap(cameraPosition), null)
+        setCameraPosition(cameraPosition)
     }
 
     fun animateCamera(
         cameraPosition: ReadableMap?,
         durationMillis: Int,
     ) {
-        mapViewState.moveCameraTo(MapCameraPosition.fromReadableMap(cameraPosition), durationMillis.toLong())
+        pendingCameraPosition = MapCameraPosition.fromReadableMap(cameraPosition)
+        mapController?.animateCamera(pendingCameraPosition, durationMillis.toLong())
     }
 
     fun fitBounds(
         bounds: ReadableMap?,
         padding: Int,
     ) {
-        mapViewState.fitBounds(geoRectBoundsFromReadableMap(bounds), padding)
+        mapController?.fitBounds(geoRectBoundsFromReadableMap(bounds), padding)
     }
 
     fun setInfoBubblePositions(positions: ReadableArray?) {
@@ -183,12 +262,34 @@ class MapLibreMapViewWrapper(context: Context) :
         markerTilingOptions = markerTilingOptionsFromReadableMap(options)
     }
 
+    private fun configureController(controller: MapLibreViewController) {
+        controller.setCameraMoveStartListener { camera ->
+            pendingCameraPosition = camera
+            emitCameraEvent("topCameraMoveStart", camera)
+            emitMarkerScreenPositions()
+            emitInfoBubbleScreenPositions()
+        }
+        controller.setCameraMoveListener { camera ->
+            pendingCameraPosition = camera
+            emitCameraEvent("topCameraMove", camera)
+            emitMarkerScreenPositions()
+            emitInfoBubbleScreenPositions()
+        }
+        controller.setCameraMoveEndListener { camera ->
+            pendingCameraPosition = camera
+            emitCameraEvent("topCameraMoveEnd", camera)
+            emitMarkerScreenPositions()
+            emitInfoBubbleScreenPositions()
+        }
+    }
+
     fun clearOverlays() {
         // Routed through markerCoroutine so it's ordered against any in-flight
         // compositionMarkers/updateMarker call on the same queue.
         markerCoroutine.launch {
+            markerStates = emptyMap()
+            runMarkerControllerCall { mapController?.compositionMarkers(emptyList()) }
             withContext(Dispatchers.Main) {
-                markerStates = emptyMap()
                 infoBubblePositions = emptyList()
                 emitMarkerScreenPositions()
                 emitInfoBubbleScreenPositions()
@@ -197,13 +298,87 @@ class MapLibreMapViewWrapper(context: Context) :
     }
 
     fun compositionMarkers(payload: ReadableMap?) {
-        val previousStates = markerStates
         markerCoroutine.launch {
+            val previousStates = markerStates
             val nextStates =
                 markerStatesFromBatchReadableMap(payload)
                     .associate { it.id to it.toCoreMarkerState(previousStates[it.id]) }
+            markerStates = nextStates
+            runMarkerControllerCall { mapController?.compositionMarkers(nextStates.values.toList()) }
             withContext(Dispatchers.Main) {
-                markerStates = nextStates
+                emitMarkerScreenPositions()
+                emitInfoBubbleScreenPositions()
+            }
+        }
+    }
+
+    fun beginMarkerComposition(
+        generation: Int,
+        iconDictionary: ReadableArray?,
+    ) {
+        markerTrace("begin received generation=$generation icons=${iconDictionary?.size() ?: 0}")
+        markerCoroutine.launch {
+            markerTrace("begin executing generation=$generation")
+            markerCompositionGeneration = generation
+            markerCompositionBuffer.clear()
+            markerCompositionIcons =
+                if (iconDictionary == null) {
+                    emptyList()
+                } else {
+                    (0 until iconDictionary.size()).map { index ->
+                        ReactNativeMarkerIcon.fromReadableMap(iconDictionary.getMap(index))?.toMarkerIcon(context)
+                    }
+                }
+        }
+    }
+
+    fun appendMarkerComposition(
+        generation: Int,
+        sequence: Int,
+        payload: ReadableMap?,
+    ) {
+        val count = payload?.getArray("ids")?.size() ?: 0
+        markerTrace("append received generation=$generation sequence=$sequence count=$count")
+        markerCoroutine.launch {
+            val startedAt = SystemClock.elapsedRealtime()
+            if (markerCompositionGeneration != generation) {
+                markerTrace("append ignored generation=$generation sequence=$sequence current=$markerCompositionGeneration")
+                return@launch
+            }
+            markerStatesFromBatchReadableMap(payload, markerCompositionIcons).forEach { state ->
+                markerCompositionBuffer[state.id] = state.toCoreMarkerState(null)
+            }
+            markerTrace(
+                "append decoded generation=$generation sequence=$sequence count=$count " +
+                    "buffer=${markerCompositionBuffer.size} elapsedMs=${SystemClock.elapsedRealtime() - startedAt}",
+            )
+            withContext(Dispatchers.Main) {
+                markerTrace("append ACK emit generation=$generation sequence=$sequence")
+                emitMarkerCompositionBatchProcessed(generation, sequence)
+            }
+        }
+    }
+
+    fun commitMarkerComposition(generation: Int) {
+        markerTrace("commit received generation=$generation")
+        markerCoroutine.launch {
+            if (markerCompositionGeneration != generation) {
+                markerTrace("commit ignored generation=$generation current=$markerCompositionGeneration")
+                return@launch
+            }
+            val nextStates = markerCompositionBuffer.toMap()
+            markerCompositionBuffer.clear()
+            markerCompositionIcons = emptyList()
+            markerCompositionGeneration = null
+            val startedAt = SystemClock.elapsedRealtime()
+            markerTrace("commit controller assignment start generation=$generation count=${nextStates.size}")
+            markerStates = nextStates
+            runMarkerControllerCall { mapController?.compositionMarkers(nextStates.values.toList()) }
+            markerTrace(
+                "commit controller assignment end generation=$generation count=${nextStates.size} " +
+                    "elapsedMs=${SystemClock.elapsedRealtime() - startedAt}",
+            )
+            withContext(Dispatchers.Main) {
                 emitMarkerScreenPositions()
                 emitInfoBubbleScreenPositions()
             }
@@ -211,13 +386,14 @@ class MapLibreMapViewWrapper(context: Context) :
     }
 
     fun updateMarker(marker: ReadableMap?) {
-        val previousStates = markerStates
         markerCoroutine.launch {
+            val previousStates = markerStates
             val state = ReactNativeMarkerState.fromReadableMap(marker) ?: return@launch
             val next = state.toCoreMarkerState(previousStates[state.id])
+            markerStates = markerStates + (state.id to next)
+            state.animation?.let(next::animate)
+            runMarkerControllerCall { mapController?.updateMarker(next) }
             withContext(Dispatchers.Main) {
-                markerStates = markerStates + (state.id to next)
-                state.animation?.let(next::animate)
                 emitMarkerScreenPositions()
                 emitInfoBubbleScreenPositions()
             }
@@ -226,19 +402,21 @@ class MapLibreMapViewWrapper(context: Context) :
 
     fun compositionRasterLayers(layers: ReadableArray?) {
         val states = rasterLayerStatesFromReadableArray(layers)
+        val previousIds = rasterLayerStates.keys
         rasterLayerStates = states.associateBy { it.id }
-        mainCoroutine.launch {
-            rasterLayerController?.clear()
-            rasterLayerController?.add(states)
-        }
+        val extensionLayers =
+            extensionScope.rasterLayerCollector.flow.value.filterKeys { id -> id !in previousIds }
+        extensionScope.rasterLayerCollector.flow.value =
+            (extensionLayers + rasterLayerStates).toMutableMap()
     }
 
     fun updateRasterLayer(layer: ReadableMap?) {
         val state = rasterLayerStateFromReadableMap(layer) ?: return
         rasterLayerStates = rasterLayerStates + (state.id to state)
-        mainCoroutine.launch {
-            rasterLayerController?.update(state)
-        }
+        extensionScope.rasterLayerCollector.flow.value =
+            extensionScope.rasterLayerCollector.flow.value
+                .toMutableMap()
+                .apply { put(state.id, state) }
     }
 
     fun upsertNativeMapExtension(
@@ -254,8 +432,21 @@ class MapLibreMapViewWrapper(context: Context) :
     }
 
     fun onDropViewInstance() {
+        markerTrace("wrapper drop")
+        initialized = false
         nativeMapExtensionHost.clear()
+        extensionComposeView.disposeComposition()
+        // Null the field before destroying: a marker-coroutine job that reads mapController
+        // after this point sees null and no-ops, instead of getting a reference to a
+        // controller whose MarkerManager is about to be (or just was) destroyed.
+        val controller = mapController
+        mapController = null
+        mapHolder = null
+        controller?.destroy()
+        mapView?.onDestroy()
+        mapView = null
         markerCoroutine.cancel()
+        mainCoroutine.cancel()
     }
 
     override fun onLayout(
@@ -266,7 +457,8 @@ class MapLibreMapViewWrapper(context: Context) :
         bottom: Int,
     ) {
         super.onLayout(changed, left, top, right, bottom)
-        composeView.layout(0, 0, right - left, bottom - top)
+        mapView?.layout(0, 0, right - left, bottom - top)
+        extensionComposeView.layout(0, 0, right - left, bottom - top)
         emitMarkerScreenPositions()
         emitInfoBubbleScreenPositions()
     }
@@ -288,17 +480,61 @@ class MapLibreMapViewWrapper(context: Context) :
             ?.dispatchEvent(MapLibreMapViewWrapperEvent(surfaceId, id, eventName, event))
     }
 
+    private fun emitMarkerCompositionBatchProcessed(
+        generation: Int,
+        sequence: Int,
+    ) {
+        emit(
+            "topMarkerCompositionBatchProcessed",
+            Arguments.createMap().apply {
+                putInt("generation", generation)
+                putInt("sequence", sequence)
+            },
+        )
+    }
+
+    private fun markerTrace(message: String) {
+        Log.d(
+            MARKER_TRACE_TAG,
+            "[MapLibre][RN][t=${SystemClock.elapsedRealtime()}]" +
+                "[thread=${Thread.currentThread().name}] $message",
+        )
+    }
+
+    /**
+     * Marker composition/update work runs on markerCoroutine's background thread, which can
+     * still have a command in flight when onDropViewInstance() destroys the controller's
+     * MarkerManager on the main thread (the view is gone, but a stale in-flight update isn't
+     * an error worth crashing the app over). Swallow only that specific race; anything else,
+     * including cancellation, propagates normally.
+     */
+    private suspend fun runMarkerControllerCall(block: suspend () -> Unit) {
+        try {
+            block()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: IllegalStateException) {
+            markerTrace("marker controller call skipped after teardown: ${e.message}")
+        }
+    }
+
     private fun emitMarkerScreenPositions() {
-        mainCoroutine.launch {
-            if (markerStates.size >= markerTilingOptions.minMarkerCount) {
+        val tilingActive = markerStates.size >= markerTilingOptions.minMarkerCount
+        if (tilingActive || markerStates.isEmpty()) {
+            if (emittedEmptyMarkerScreenPositions) return
+            emittedEmptyMarkerScreenPositions = true
+            mainCoroutine.launch {
                 emit(
                     "topMarkerScreenPositions",
                     Arguments.createMap().apply { putArray("positions", Arguments.createArray()) },
                 )
-                return@launch
             }
+            return
+        }
+        emittedEmptyMarkerScreenPositions = false
+        mainCoroutine.launch {
             val density = ResourceProvider.getDensity()
-            val holder = mapViewState.getMapViewHolder() ?: return@launch
+            val holder = mapHolder ?: return@launch
             val array =
                 Arguments.createArray().apply {
                     markerStates.values.forEach { marker ->
@@ -317,9 +553,21 @@ class MapLibreMapViewWrapper(context: Context) :
     }
 
     private fun emitInfoBubbleScreenPositions() {
+        if (infoBubblePositions.isEmpty()) {
+            if (emittedEmptyInfoBubbleScreenPositions) return
+            emittedEmptyInfoBubbleScreenPositions = true
+            mainCoroutine.launch {
+                emit(
+                    "topInfoBubbleScreenPositions",
+                    Arguments.createMap().apply { putArray("positions", Arguments.createArray()) },
+                )
+            }
+            return
+        }
+        emittedEmptyInfoBubbleScreenPositions = false
         mainCoroutine.launch {
             val density = ResourceProvider.getDensity()
-            val holder = mapViewState.getMapViewHolder() ?: return@launch
+            val holder = mapHolder ?: return@launch
             val array =
                 Arguments.createArray().apply {
                     infoBubblePositions.forEach { position ->
@@ -338,7 +586,7 @@ class MapLibreMapViewWrapper(context: Context) :
     }
 
     private fun ReactNativeMarkerState.toCoreMarkerState(previous: MarkerState?): MarkerState {
-        val resolvedIcon = icon?.toMarkerIcon(context)
+        val resolvedIcon = this.resolvedIcon ?: icon?.toMarkerIcon(context)
         val next =
             previous ?: MarkerState(
                 id = id,
@@ -368,6 +616,72 @@ class MapLibreMapViewWrapper(context: Context) :
         return next
     }
 }
+
+@Composable
+private fun RenderNativeExtensions(
+    scope: MapViewScope,
+    registry: MapOverlayRegistry,
+    controller: MapLibreViewController,
+    serviceRegistry: MutableMapServiceRegistry,
+    host: NativeMapExtensionHostState,
+) {
+    DisposableEffect(controller) {
+        scope.groundImageCollector.setUpdateHandler { state ->
+            (controller as GroundImageCapableInterface).let { capable ->
+                if (capable.hasGroundImage(state)) capable.updateGroundImage(state)
+            }
+        }
+        scope.rasterLayerCollector.setUpdateHandler { state ->
+            (controller as RasterLayerCapableInterface).let { capable ->
+                if (capable.hasRasterLayer(state)) capable.updateRasterLayer(state)
+            }
+        }
+        scope.polygonCollector.setUpdateHandler { state ->
+            (controller as PolygonCapableInterface).let { capable ->
+                if (capable.hasPolygon(state)) capable.updatePolygon(state)
+            }
+        }
+        scope.polylineCollector.setUpdateHandler { state ->
+            (controller as PolylineCapableInterface).let { capable ->
+                if (capable.hasPolyline(state)) capable.updatePolyline(state)
+            }
+        }
+        scope.circleCollector.setUpdateHandler { state ->
+            (controller as CircleCapableInterface).let { capable ->
+                if (capable.hasCircle(state)) capable.updateCircle(state)
+            }
+        }
+        onDispose {
+            scope.groundImageCollector.setUpdateHandler(null)
+            scope.rasterLayerCollector.setUpdateHandler(null)
+            scope.polygonCollector.setUpdateHandler(null)
+            scope.polylineCollector.setUpdateHandler(null)
+            scope.circleCollector.setUpdateHandler(null)
+        }
+    }
+
+    CollectAndRenderOverlays(
+        registry = registry,
+        controller = controller,
+    )
+    CompositionLocalProvider(
+        LocalMapOverlayRegistry provides registry,
+        LocalMapServiceRegistry provides serviceRegistry,
+        LocalMapViewController provides controller,
+        LocalInfoBubbleCollector provides scope.bubbleFlow,
+        LocalCircleCollector provides scope.circleCollector,
+        LocalPolylineCollector provides scope.polylineCollector,
+        LocalPolygonCollector provides scope.polygonCollector,
+        LocalGroundImageCollector provides scope.groundImageCollector,
+        LocalRasterLayerCollector provides scope.rasterLayerCollector,
+    ) {
+        with(scope) {
+            with(host) { RenderExtensions() }
+        }
+    }
+}
+
+private const val MARKER_TRACE_TAG = "MCMarkerTrace"
 
 private fun markerTilingOptionsFromReadableMap(map: ReadableMap?): MarkerTilingOptions {
     if (map == null) return MarkerTilingOptions.Default

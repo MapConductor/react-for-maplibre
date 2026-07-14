@@ -34,6 +34,9 @@ export interface NativeMapLibreViewProps extends ViewProps {
     altitude?: number | null;
   }>;
   onMapLoaded?: () => void;
+  onMarkerCompositionBatchProcessed?: (
+    event: NativeMapLibreViewEvent<{ generation: number; sequence: number }>
+  ) => void;
   onMapClick?: (event: NativeMapLibreViewEvent<{ point: GeoPoint }>) => void;
   onMapLongClick?: (event: NativeMapLibreViewEvent<{ point: GeoPoint }>) => void;
   onCameraMoveStart?: (

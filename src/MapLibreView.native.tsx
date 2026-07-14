@@ -118,6 +118,12 @@ export function MapLibreView({
             setIsReady(true);
             controller.onNativeMapLoaded();
           }}
+          onMarkerCompositionBatchProcessed={(event) =>
+            controller.onNativeMarkerCompositionBatchProcessed(
+              event.nativeEvent.generation,
+              event.nativeEvent.sequence
+            )
+          }
           onMapClick={(event) => controller.onNativeMapClick(GeoPoint.from(event.nativeEvent.point))}
           onMapLongClick={(event) =>
             controller.onNativeMapLongClick(GeoPoint.from(event.nativeEvent.point))
@@ -153,24 +159,24 @@ export function MapLibreView({
             )
           }
           onMarkerScreenPositions={(event) => {
-            setMarkerScreenPositions(
-              new Map(
-                event.nativeEvent.positions.map((position) => [
-                  position.markerId,
-                  { x: position.x, y: position.y },
-                ])
-              )
-            );
+            const positions = event.nativeEvent.positions;
+            setMarkerScreenPositions((previous) => {
+              // Keeping the previous (empty) Map lets React bail out of the
+              // re-render that an identical-but-new Map would trigger.
+              if (previous.size === 0 && positions.length === 0) return previous;
+              return new Map(
+                positions.map((position) => [position.markerId, { x: position.x, y: position.y }])
+              );
+            });
           }}
           onInfoBubbleScreenPositions={(event) => {
-            setInfoBubbleScreenPositions(
-              new Map(
-                event.nativeEvent.positions.map((position) => [
-                  position.id,
-                  { x: position.x, y: position.y },
-                ])
-              )
-            );
+            const positions = event.nativeEvent.positions;
+            setInfoBubbleScreenPositions((previous) => {
+              if (previous.size === 0 && positions.length === 0) return previous;
+              return new Map(
+                positions.map((position) => [position.id, { x: position.x, y: position.y }])
+              );
+            });
           }}
           onNativeMapExtensionEvent={(event) =>
             controller?.onNativeMapExtensionEvent(event.nativeEvent)
