@@ -107,7 +107,6 @@ export class MapLibreViewController
 
   async compositionMarkers(data: MarkerState[]): Promise<void> {
     const generation = ++this.markerCompositionGeneration;
-    markerTrace(`composition requested generation=${generation} count=${data.length} ready=${this.mapLoaded}`);
     this.cancelMarkerBatchAck();
     this.activeMarkerComposition = null;
     this.pendingMarkerComposition = data;
@@ -116,8 +115,6 @@ export class MapLibreViewController
     data.forEach((state) => this.markerStates.set(state.id, state));
     if (this.mapLoaded) {
       await this.startPendingMarkerComposition(generation);
-    } else {
-      markerTrace(`composition queued generation=${generation} waitingFor=mapLoaded`);
     }
   }
 
@@ -217,7 +214,6 @@ export class MapLibreViewController
   }
 
   destroy(): void {
-    markerTrace('controller destroy');
     this.cancelMarkerComposition();
     this.pendingMarkerUpdates.clear();
     this.nativeMapExtensionEventHandlers.clear();
@@ -230,7 +226,6 @@ export class MapLibreViewController
   }
 
   onNativeMapLoaded(): void {
-    markerTrace('native mapLoaded received');
     this.mapLoaded = true;
     if (this.pendingRasterLayers) {
       this.dispatchCommand('compositionRasterLayers', [this.pendingRasterLayers]);
@@ -241,7 +236,6 @@ export class MapLibreViewController
   }
 
   onNativeMarkerCompositionBatchProcessed(generation: number, sequence: number): void {
-    markerTrace(`ACK received generation=${generation} sequence=${sequence}`);
     const ack = this.markerBatchAck;
     if (!ack || ack.generation !== generation || ack.sequence !== sequence) return;
     clearTimeout(ack.timeout);
@@ -323,39 +317,22 @@ export class MapLibreViewController
     if (!data) return;
     this.pendingMarkerComposition = null;
     this.activeMarkerComposition = generation;
-    const compositionStartedAt = Date.now();
     const iconRegistry = createNativeMarkerIconRegistry(data);
-    markerTrace(
-      `begin dispatch generation=${generation} count=${data.length} icons=${iconRegistry.icons.length}`
-    );
     this.dispatchCommand('beginMarkerComposition', [generation, iconRegistry.icons]);
 
     let sequence = 0;
     for (let offset = 0; offset < data.length; offset += NATIVE_MARKER_BATCH_SIZE) {
       if (generation !== this.markerCompositionGeneration) return;
       const batch = data.slice(offset, offset + NATIVE_MARKER_BATCH_SIZE);
-      const batchStartedAt = Date.now();
-      markerTrace(
-        `batch encode start generation=${generation} sequence=${sequence} offset=${offset} count=${batch.length}`
-      );
       const payload = encodeMarkerBatch(batch, iconRegistry);
-      markerTrace(
-        `batch dispatch generation=${generation} sequence=${sequence} encodeMs=${Date.now() - batchStartedAt}`
-      );
       const ack = this.waitForMarkerBatchAck(generation, sequence);
       this.dispatchCommand('appendMarkerComposition', [generation, sequence, payload]);
       if (!(await ack)) return;
-      markerTrace(
-        `batch complete generation=${generation} sequence=${sequence} elapsedMs=${Date.now() - batchStartedAt}`
-      );
       sequence++;
     }
 
     if (generation !== this.markerCompositionGeneration) return;
     this.dispatchCommand('commitMarkerComposition', [generation]);
-    markerTrace(
-      `commit dispatch generation=${generation} count=${data.length} elapsedMs=${Date.now() - compositionStartedAt}`
-    );
     this.activeMarkerComposition = null;
     this.flushPendingMarkerUpdates();
   }
@@ -366,7 +343,6 @@ export class MapLibreViewController
       const timeout = setTimeout(() => {
         if (this.markerBatchAck?.generation !== generation) return;
         this.markerBatchAck = null;
-        markerTrace(`ACK timeout generation=${generation} sequence=${sequence}`);
         resolve(false);
       }, MARKER_BATCH_ACK_TIMEOUT_MS);
       this.markerBatchAck = { generation, sequence, timeout, resolve };
@@ -382,20 +358,11 @@ export class MapLibreViewController
   }
 
   private cancelMarkerComposition(): void {
-    if (this.pendingMarkerComposition !== null || this.activeMarkerComposition !== null) {
-      markerTrace(
-        `composition cancelled generation=${this.markerCompositionGeneration} active=${this.activeMarkerComposition}`
-      );
-    }
     this.markerCompositionGeneration++;
     this.activeMarkerComposition = null;
     this.pendingMarkerComposition = null;
     this.cancelMarkerBatchAck();
   }
-}
-
-function markerTrace(message: string): void {
-  console.info(`[MCMarkerTrace][MapLibre][JS][${Date.now()}] ${message}`);
 }
 
 const MARKER_BATCH_ACK_TIMEOUT_MS = 30_000;
