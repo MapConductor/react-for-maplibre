@@ -8,9 +8,13 @@ import {
   type MapLibreActualMarker,
 } from './MarkerLayer';
 
+const MARKER_DRAG_THRESHOLD_PX = 3;
+
 export class MapLibreMarkerEventController {
   private activePointerId: number | null = null;
   private dragPanWasEnabled = false;
+  private pointerDownOffset: Offset | null = null;
+  private dragStarted = false;
 
   /** Last observed pointer input type — used by MapLibreViewController for tile-marker hit radius. */
   lastPointerType: 'touch' | 'mouse' = 'mouse';
@@ -67,11 +71,12 @@ export class MapLibreMarkerEventController {
 
     event.preventDefault();
     this.activePointerId = event.pointerId;
+    this.pointerDownOffset = this.localPoint(event);
+    this.dragStarted = false;
     this.dragPanWasEnabled = this.controller.renderer.holder.map.dragPan.isEnabled();
     this.controller.renderer.holder.map.dragPan.disable();
     this.controller.renderer.holder.map.getCanvas().setPointerCapture(event.pointerId);
     void this.controller.setSelectedMarker(entity);
-    this.controller.dispatchDragStart(entity.state);
   };
 
   private readonly handlePointerMove = (event: PointerEvent): void => {
@@ -80,6 +85,15 @@ export class MapLibreMarkerEventController {
     if (!selected) return;
 
     event.preventDefault();
+    if (!this.dragStarted) {
+      const down = this.pointerDownOffset;
+      const current = this.localPoint(event);
+      if (!down || Math.hypot(current.x - down.x, current.y - down.y) < MARKER_DRAG_THRESHOLD_PX) {
+        return;
+      }
+      this.dragStarted = true;
+      this.controller.dispatchDragStart(selected.state);
+    }
     const position = this.positionFromPointer(event);
     selected.state.setPosition(position);
     this.controller.updateSelectedPosition(position);
@@ -103,13 +117,16 @@ export class MapLibreMarkerEventController {
       return;
     }
 
-    if (updatePosition) {
+    const wasDragging = this.dragStarted;
+    if (updatePosition && wasDragging) {
       const position = this.positionFromPointer(event);
       selected.state.setPosition(position);
       this.controller.updateSelectedPosition(position);
     }
     await this.controller.setSelectedMarker(null);
-    this.controller.dispatchDragEnd(selected.state);
+    if (wasDragging) {
+      this.controller.dispatchDragEnd(selected.state);
+    }
     this.restoreMapInteraction(event.pointerId);
   }
 
@@ -119,6 +136,8 @@ export class MapLibreMarkerEventController {
     if (this.dragPanWasEnabled) this.controller.renderer.holder.map.dragPan.enable();
     this.dragPanWasEnabled = false;
     this.activePointerId = null;
+    this.pointerDownOffset = null;
+    this.dragStarted = false;
   }
 
   private findMarkerAtPointer(

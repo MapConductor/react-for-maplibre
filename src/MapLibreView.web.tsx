@@ -155,16 +155,20 @@ export function MapLibreView({
           collector: OverlayCollector<S>,
           hasMethod: string,
           updateMethod: string,
+          onUpdated?: () => void,
         ) => {
           collector.setUpdateHandler((state) => {
             if ((c[hasMethod] as (s: S) => boolean)?.(state)) {
               void (c[updateMethod] as (s: S) => Promise<void>)?.(state);
+              onUpdated?.();
             }
           });
           bridgeUnsubs.current.push(() => collector.setUpdateHandler(null));
         };
 
-        setupUpdateHandler(scope.markerCollector, 'hasMarker', 'updateMarker');
+        // Marker position changes during a drag also need to re-project any
+        // open InfoBubble anchored to that marker.
+        setupUpdateHandler(scope.markerCollector, 'hasMarker', 'updateMarker', () => setCameraTick(t => t + 1));
         setupUpdateHandler(scope.circleCollector, 'hasCircle', 'updateCircle');
         setupUpdateHandler(scope.polylineCollector, 'hasPolyline', 'updatePolyline');
         setupUpdateHandler(scope.polygonCollector, 'hasPolygon', 'updatePolygon');
