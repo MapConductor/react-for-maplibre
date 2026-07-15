@@ -54,6 +54,9 @@ export interface NativeMapLibreViewProps extends ViewProps {
   onCircleClick?: (
     event: NativeMapLibreViewEvent<{ circleId: string; point: GeoPoint }>
   ) => void;
+  onGroundImageClick?: (
+    event: NativeMapLibreViewEvent<{ groundImageId: string; point: GeoPoint }>
+  ) => void;
   onPolylineClick?: (
     event: NativeMapLibreViewEvent<{ polylineId: string; point: GeoPoint }>
   ) => void;

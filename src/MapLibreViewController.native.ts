@@ -7,12 +7,15 @@ import {
   type CircleState,
   type GeoPoint,
   type GeoRectBounds,
+  type GroundImageCapable,
+  type GroundImageState,
   type MarkerAnimationOverlayHost,
   type MarkerCapable,
   type MarkerState,
   type MapCameraPosition,
   type MapViewControllerInterface,
   type OnMarkerEventHandler,
+  type OnGroundImageEventHandler,
   type OnCircleEventHandler,
   type OnPolygonEventHandler,
   type OnPolylineEventHandler,
@@ -43,6 +46,7 @@ export class MapLibreViewController
   implements
     MapViewControllerInterface,
     CircleCapable,
+    GroundImageCapable,
     MarkerCapable,
     PolygonCapable,
     PolylineCapable,
@@ -59,15 +63,18 @@ export class MapLibreViewController
   private readonly pendingMarkerUpdates = new Set<string>();
   private readonly markerStates = new Map<string, MarkerState>();
   private readonly circleStates = new Map<string, CircleState>();
+  private readonly groundImageStates = new Map<string, GroundImageState>();
   private readonly polygonStates = new Map<string, PolygonState>();
   private readonly polylineStates = new Map<string, PolylineState>();
   private readonly rasterLayerStates = new Map<string, RasterLayerState>();
   private pendingPolygons: Array<ReturnType<typeof polygonStateToNative>> | null = null;
   private pendingCircles: Array<ReturnType<typeof circleStateToNative>> | null = null;
+  private pendingGroundImages: Array<ReturnType<typeof groundImageStateToNative>> | null = null;
   private pendingPolylines: Array<ReturnType<typeof polylineStateToNative>> | null = null;
   private pendingRasterLayers: Array<ReturnType<typeof rasterLayerStateToNative>> | null = null;
   private markerClickListener: OnMarkerEventHandler | null = null;
   private circleClickListener: OnCircleEventHandler | null = null;
+  private groundImageClickListener: OnGroundImageEventHandler | null = null;
   private markerDragStartListener: OnMarkerEventHandler | null = null;
   private markerDragListener: OnMarkerEventHandler | null = null;
   private markerDragEndListener: OnMarkerEventHandler | null = null;
@@ -92,11 +99,13 @@ export class MapLibreViewController
     this.pendingMarkerUpdates.clear();
     this.markerStates.clear();
     this.circleStates.clear();
+    this.groundImageStates.clear();
     this.polygonStates.clear();
     this.polylineStates.clear();
     this.rasterLayerStates.clear();
     this.pendingPolygons = this.mapLoaded ? null : [];
     this.pendingCircles = this.mapLoaded ? null : [];
+    this.pendingGroundImages = this.mapLoaded ? null : [];
     this.pendingPolylines = this.mapLoaded ? null : [];
     this.pendingRasterLayers = this.mapLoaded ? null : [];
     this.dispatchCommand('clearOverlays', []);
@@ -191,6 +200,36 @@ export class MapLibreViewController
 
   setOnCircleClickListener(listener: OnCircleEventHandler | null): void {
     this.circleClickListener = listener;
+  }
+
+  async compositionGroundImages(data: GroundImageState[]): Promise<void> {
+    this.groundImageStates.clear();
+    data.forEach((state) => this.groundImageStates.set(state.id, state));
+    const payload = data.map(groundImageStateToNative);
+    if (!this.mapLoaded) {
+      this.pendingGroundImages = payload;
+      return;
+    }
+    this.dispatchCommand('compositionGroundImages', [payload]);
+  }
+
+  async updateGroundImage(state: GroundImageState): Promise<void> {
+    this.groundImageStates.set(state.id, state);
+    if (!this.mapLoaded) {
+      this.pendingGroundImages = Array.from(this.groundImageStates.values()).map(
+        groundImageStateToNative
+      );
+      return;
+    }
+    this.dispatchCommand('updateGroundImage', [groundImageStateToNative(state)]);
+  }
+
+  hasGroundImage(state: GroundImageState): boolean {
+    return this.groundImageStates.has(state.id);
+  }
+
+  setOnGroundImageClickListener(listener: OnGroundImageEventHandler | null): void {
+    this.groundImageClickListener = listener;
   }
 
   async compositionPolygons(data: PolygonState[]): Promise<void> {
@@ -330,6 +369,9 @@ export class MapLibreViewController
     this.circleStates.clear();
     this.pendingCircles = null;
     this.circleClickListener = null;
+    this.groundImageStates.clear();
+    this.pendingGroundImages = null;
+    this.groundImageClickListener = null;
     this.polygonStates.clear();
     this.pendingPolygons = null;
     this.polygonClickListener = null;
@@ -350,6 +392,10 @@ export class MapLibreViewController
     if (this.pendingCircles) {
       this.dispatchCommand('compositionCircles', [this.pendingCircles]);
       this.pendingCircles = null;
+    }
+    if (this.pendingGroundImages) {
+      this.dispatchCommand('compositionGroundImages', [this.pendingGroundImages]);
+      this.pendingGroundImages = null;
     }
     if (this.pendingPolygons) {
       this.dispatchCommand('compositionPolygons', [this.pendingPolygons]);
@@ -396,6 +442,14 @@ export class MapLibreViewController
     const event = { state, clicked };
     state.onClick?.(event);
     this.circleClickListener?.(event);
+  }
+
+  onNativeGroundImageClick(groundImageId: string, clicked: GeoPoint): void {
+    const state = this.groundImageStates.get(groundImageId);
+    if (!state) return;
+    const event = { state, clicked };
+    state.onClick?.(event);
+    this.groundImageClickListener?.(event);
   }
 
   onNativePolylineClick(polylineId: string, clicked: GeoPoint): void {
@@ -540,6 +594,16 @@ function rasterLayerStateToNative(state: RasterLayerState) {
     userAgent: state.userAgent,
     debug: state.debug,
     extraHeaders: state.extraHeaders,
+  };
+}
+
+function groundImageStateToNative(state: GroundImageState) {
+  return {
+    id: state.id,
+    bounds: state.bounds,
+    imageUrl: state.imageUrl,
+    opacity: state.opacity,
+    tileSize: state.tileSize,
   };
 }
 

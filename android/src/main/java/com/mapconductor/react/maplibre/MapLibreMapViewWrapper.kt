@@ -59,6 +59,8 @@ import com.mapconductor.react.maplibre.polyline.polylineStatesFromReadableArray
 import com.mapconductor.react.maplibre.polygon.polygonStateFromReadableMap
 import com.mapconductor.react.maplibre.polygon.polygonStatesFromReadableArray
 import com.mapconductor.react.marker.MarkerScaleBridge
+import com.mapconductor.react.groundimage.groundImageStateFromReadableMap
+import com.mapconductor.react.groundimage.groundImageStatesFromReadableArray
 import com.mapconductor.react.raster.rasterLayerStateFromReadableMap
 import com.mapconductor.react.raster.rasterLayerStatesFromReadableArray
 import kotlinx.coroutines.CancellationException
@@ -128,6 +130,7 @@ class MapLibreMapViewWrapper(context: Context) :
     private val markerCompositionBuffer = mutableMapOf<String, MarkerState>()
     private var markerCompositionIcons: List<MarkerIconInterface?> = emptyList()
     private var rasterLayerStates: Map<String, com.mapconductor.core.raster.RasterLayerState> = emptyMap()
+    private var groundImageStates: Map<String, com.mapconductor.core.groundimage.GroundImageState> = emptyMap()
     private var markerTilingOptions = MarkerTilingOptions.Default
     private var infoBubblePositions: List<MapLibreWrapperInfoBubblePosition> = emptyList()
 
@@ -301,6 +304,18 @@ class MapLibreMapViewWrapper(context: Context) :
                 mapController?.compositionPolygons(emptyList())
                 mapController?.compositionPolylines(emptyList())
                 mapController?.compositionCircles(emptyList())
+                val groundImageIds = groundImageStates.keys
+                groundImageStates = emptyMap()
+                extensionScope.groundImageCollector.flow.value =
+                    extensionScope.groundImageCollector.flow.value
+                        .filterKeys { id -> id !in groundImageIds }
+                        .toMutableMap()
+                val rasterLayerIds = rasterLayerStates.keys
+                rasterLayerStates = emptyMap()
+                extensionScope.rasterLayerCollector.flow.value =
+                    extensionScope.rasterLayerCollector.flow.value
+                        .filterKeys { id -> id !in rasterLayerIds }
+                        .toMutableMap()
                 infoBubblePositions = emptyList()
                 emitMarkerScreenPositions()
                 emitInfoBubbleScreenPositions()
@@ -463,6 +478,25 @@ class MapLibreMapViewWrapper(context: Context) :
             (extensionLayers + rasterLayerStates).toMutableMap()
     }
 
+    fun compositionGroundImages(images: ReadableArray?) {
+        val states = groundImageStatesFromReadableArray(images, context, ::emitGroundImageClick)
+        val previousIds = groundImageStates.keys
+        groundImageStates = states.associateBy { it.id }
+        val extensionImages =
+            extensionScope.groundImageCollector.flow.value.filterKeys { id -> id !in previousIds }
+        extensionScope.groundImageCollector.flow.value =
+            (extensionImages + groundImageStates).toMutableMap()
+    }
+
+    fun updateGroundImage(image: ReadableMap?) {
+        val state = groundImageStateFromReadableMap(image, context, ::emitGroundImageClick) ?: return
+        groundImageStates = groundImageStates + (state.id to state)
+        extensionScope.groundImageCollector.flow.value =
+            extensionScope.groundImageCollector.flow.value
+                .toMutableMap()
+                .apply { put(state.id, state) }
+    }
+
     fun updateRasterLayer(layer: ReadableMap?) {
         val state = rasterLayerStateFromReadableMap(layer) ?: return
         rasterLayerStates = rasterLayerStates + (state.id to state)
@@ -559,6 +593,20 @@ class MapLibreMapViewWrapper(context: Context) :
             Arguments.createMap().apply {
                 putString("polygonId", id)
                 putMap("point", GeoPoint.from(event.clicked).toWritableMap())
+            },
+        )
+    }
+
+    private fun emitGroundImageClick(
+        id: String,
+        event: com.mapconductor.core.groundimage.GroundImageEvent,
+    ) {
+        val clicked = event.clicked ?: return
+        emit(
+            "topGroundImageClick",
+            Arguments.createMap().apply {
+                putString("groundImageId", id)
+                putMap("point", GeoPoint.from(clicked).toWritableMap())
             },
         )
     }
