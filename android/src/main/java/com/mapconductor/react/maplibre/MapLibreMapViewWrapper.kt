@@ -757,6 +757,8 @@ class MapLibreMapViewWrapper(context: Context) :
         next.onDragStart = { emitMarkerDrag("topMarkerDragStart", it) }
         next.onDrag = { emitMarkerDrag("topMarkerDrag", it) }
         next.onDragEnd = { emitMarkerDrag("topMarkerDragEnd", it) }
+        next.onAnimateStart = { emitMarkerAnimate("topMarkerAnimateStart", it) }
+        next.onAnimateEnd = { emitMarkerAnimate("topMarkerAnimateEnd", it) }
         return next
     }
 
@@ -769,6 +771,18 @@ class MapLibreMapViewWrapper(context: Context) :
             Arguments.createMap().apply {
                 putString("markerId", state.id)
                 putMap("point", GeoPoint.from(state.position).toWritableMap())
+            },
+        )
+    }
+
+    private fun emitMarkerAnimate(
+        eventName: String,
+        state: MarkerState,
+    ) {
+        emit(
+            eventName,
+            Arguments.createMap().apply {
+                putString("markerId", state.id)
             },
         )
     }

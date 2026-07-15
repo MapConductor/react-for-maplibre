@@ -68,6 +68,12 @@ export interface NativeMapLibreViewProps extends ViewProps {
   ) => void;
   onMarkerDrag?: (event: NativeMapLibreViewEvent<{ markerId: string; point: GeoPoint }>) => void;
   onMarkerDragEnd?: (event: NativeMapLibreViewEvent<{ markerId: string; point: GeoPoint }>) => void;
+  onMarkerAnimateStart?: (
+    event: NativeMapLibreViewEvent<{ markerId: string }>
+  ) => void;
+  onMarkerAnimateEnd?: (
+    event: NativeMapLibreViewEvent<{ markerId: string }>
+  ) => void;
   onMarkerScreenPositions?: (
     event: NativeMapLibreViewEvent<{
       positions: Array<{ markerId: string; x: number; y: number }>;
