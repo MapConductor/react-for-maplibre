@@ -70,6 +70,21 @@ export function MapLibreView({
         void controller.updateMarker(marker);
       }
     });
+    scope.circleCollector.setUpdateHandler((circle) => {
+      if (controller.hasCircle(circle)) {
+        void controller.updateCircle(circle);
+      }
+    });
+    scope.polylineCollector.setUpdateHandler((polyline) => {
+      if (controller.hasPolyline(polyline)) {
+        void controller.updatePolyline(polyline);
+      }
+    });
+    scope.polygonCollector.setUpdateHandler((polygon) => {
+      if (controller.hasPolygon(polygon)) {
+        void controller.updatePolygon(polygon);
+      }
+    });
     scope.rasterLayerCollector.setUpdateHandler((rasterLayer) => {
       if (controller.hasRasterLayer(rasterLayer)) {
         void controller.updateRasterLayer(rasterLayer);
@@ -78,6 +93,9 @@ export function MapLibreView({
 
     return () => {
       scope.markerCollector.setUpdateHandler(null);
+      scope.circleCollector.setUpdateHandler(null);
+      scope.polylineCollector.setUpdateHandler(null);
+      scope.polygonCollector.setUpdateHandler(null);
       scope.rasterLayerCollector.setUpdateHandler(null);
     };
   }, [controller, scope]);
@@ -153,6 +171,24 @@ export function MapLibreView({
             controller.onNativeCameraMoveEnd(MapCameraPosition.from(event.nativeEvent.cameraPosition))
           }
           onMarkerClick={(event) => controller.onNativeMarkerClick(event.nativeEvent.markerId)}
+          onCircleClick={(event) =>
+            controller.onNativeCircleClick(
+              event.nativeEvent.circleId,
+              GeoPoint.from(event.nativeEvent.point)
+            )
+          }
+          onPolylineClick={(event) =>
+            controller.onNativePolylineClick(
+              event.nativeEvent.polylineId,
+              GeoPoint.from(event.nativeEvent.point)
+            )
+          }
+          onPolygonClick={(event) =>
+            controller.onNativePolygonClick(
+              event.nativeEvent.polygonId,
+              GeoPoint.from(event.nativeEvent.point)
+            )
+          }
           onMarkerDragStart={(event) =>
             controller.onNativeMarkerDragStart(
               event.nativeEvent.markerId,

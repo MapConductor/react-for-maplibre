@@ -47,11 +47,17 @@ import com.mapconductor.maplibre.MapLibreViewController
 import com.mapconductor.maplibre.createMapLibreViewController
 import com.mapconductor.maplibre.toCameraPosition
 import com.mapconductor.react.extensions.NativeMapExtensionHostState
+import com.mapconductor.react.maplibre.circle.circleStateFromReadableMap
+import com.mapconductor.react.maplibre.circle.circleStatesFromReadableArray
 import com.mapconductor.react.maplibre.marker.ReactNativeMarkerState
 import com.mapconductor.react.maplibre.marker.ReactNativeMarkerIcon
 import com.mapconductor.react.maplibre.marker.fromReadableMap
 import com.mapconductor.react.maplibre.marker.markerStatesFromBatchReadableMap
 import com.mapconductor.react.maplibre.marker.toMarkerIcon
+import com.mapconductor.react.maplibre.polyline.polylineStateFromReadableMap
+import com.mapconductor.react.maplibre.polyline.polylineStatesFromReadableArray
+import com.mapconductor.react.maplibre.polygon.polygonStateFromReadableMap
+import com.mapconductor.react.maplibre.polygon.polygonStatesFromReadableArray
 import com.mapconductor.react.marker.MarkerScaleBridge
 import com.mapconductor.react.raster.rasterLayerStateFromReadableMap
 import com.mapconductor.react.raster.rasterLayerStatesFromReadableArray
@@ -292,6 +298,9 @@ class MapLibreMapViewWrapper(context: Context) :
             markerStates = emptyMap()
             runMarkerControllerCall { mapController?.compositionMarkers(emptyList()) }
             withContext(Dispatchers.Main) {
+                mapController?.compositionPolygons(emptyList())
+                mapController?.compositionPolylines(emptyList())
+                mapController?.compositionCircles(emptyList())
                 infoBubblePositions = emptyList()
                 emitMarkerScreenPositions()
                 emitInfoBubbleScreenPositions()
@@ -402,6 +411,48 @@ class MapLibreMapViewWrapper(context: Context) :
         }
     }
 
+    fun compositionPolylines(polylines: ReadableArray?) {
+        val states = polylineStatesFromReadableArray(polylines, ::emitPolylineClick)
+        mainCoroutine.launch {
+            mapController?.compositionPolylines(states)
+        }
+    }
+
+    fun compositionCircles(circles: ReadableArray?) {
+        val states = circleStatesFromReadableArray(circles, ::emitCircleClick)
+        mainCoroutine.launch {
+            mapController?.compositionCircles(states)
+        }
+    }
+
+    fun updateCircle(circle: ReadableMap?) {
+        val state = circleStateFromReadableMap(circle, ::emitCircleClick) ?: return
+        mainCoroutine.launch {
+            mapController?.updateCircle(state)
+        }
+    }
+
+    fun compositionPolygons(polygons: ReadableArray?) {
+        val states = polygonStatesFromReadableArray(polygons, ::emitPolygonClick)
+        mainCoroutine.launch {
+            mapController?.compositionPolygons(states)
+        }
+    }
+
+    fun updatePolygon(polygon: ReadableMap?) {
+        val state = polygonStateFromReadableMap(polygon, ::emitPolygonClick) ?: return
+        mainCoroutine.launch {
+            mapController?.updatePolygon(state)
+        }
+    }
+
+    fun updatePolyline(polyline: ReadableMap?) {
+        val state = polylineStateFromReadableMap(polyline, ::emitPolylineClick) ?: return
+        mainCoroutine.launch {
+            mapController?.updatePolyline(state)
+        }
+    }
+
     fun compositionRasterLayers(layers: ReadableArray?) {
         val states = rasterLayerStatesFromReadableArray(layers)
         val previousIds = rasterLayerStates.keys
@@ -471,6 +522,45 @@ class MapLibreMapViewWrapper(context: Context) :
         camera: MapCameraPosition,
     ) {
         emit(eventName, Arguments.createMap().apply { putMap("cameraPosition", camera.toWritableMap()) })
+    }
+
+    private fun emitPolylineClick(
+        id: String,
+        event: com.mapconductor.core.polyline.PolylineEvent,
+    ) {
+        emit(
+            "topPolylineClick",
+            Arguments.createMap().apply {
+                putString("polylineId", id)
+                putMap("point", GeoPoint.from(event.clicked).toWritableMap())
+            },
+        )
+    }
+
+    private fun emitCircleClick(
+        id: String,
+        event: com.mapconductor.core.circle.CircleEvent,
+    ) {
+        emit(
+            "topCircleClick",
+            Arguments.createMap().apply {
+                putString("circleId", id)
+                putMap("point", GeoPoint.from(event.clicked).toWritableMap())
+            },
+        )
+    }
+
+    private fun emitPolygonClick(
+        id: String,
+        event: com.mapconductor.core.polygon.PolygonEvent,
+    ) {
+        emit(
+            "topPolygonClick",
+            Arguments.createMap().apply {
+                putString("polygonId", id)
+                putMap("point", GeoPoint.from(event.clicked).toWritableMap())
+            },
+        )
     }
 
     private fun emit(
@@ -616,7 +706,23 @@ class MapLibreMapViewWrapper(context: Context) :
             } else {
                 null
             }
+        next.onDragStart = { emitMarkerDrag("topMarkerDragStart", it) }
+        next.onDrag = { emitMarkerDrag("topMarkerDrag", it) }
+        next.onDragEnd = { emitMarkerDrag("topMarkerDragEnd", it) }
         return next
+    }
+
+    private fun emitMarkerDrag(
+        eventName: String,
+        state: MarkerState,
+    ) {
+        emit(
+            eventName,
+            Arguments.createMap().apply {
+                putString("markerId", state.id)
+                putMap("point", GeoPoint.from(state.position).toWritableMap())
+            },
+        )
     }
 }
 

@@ -51,6 +51,15 @@ export interface NativeMapLibreViewProps extends ViewProps {
   onCameraMove?: (event: NativeMapLibreViewEvent<{ cameraPosition: MapCameraPosition }>) => void;
   onCameraMoveEnd?: (event: NativeMapLibreViewEvent<{ cameraPosition: MapCameraPosition }>) => void;
   onMarkerClick?: (event: NativeMapLibreViewEvent<{ markerId: string }>) => void;
+  onCircleClick?: (
+    event: NativeMapLibreViewEvent<{ circleId: string; point: GeoPoint }>
+  ) => void;
+  onPolylineClick?: (
+    event: NativeMapLibreViewEvent<{ polylineId: string; point: GeoPoint }>
+  ) => void;
+  onPolygonClick?: (
+    event: NativeMapLibreViewEvent<{ polygonId: string; point: GeoPoint }>
+  ) => void;
   onMarkerDragStart?: (
     event: NativeMapLibreViewEvent<{ markerId: string; point: GeoPoint }>
   ) => void;

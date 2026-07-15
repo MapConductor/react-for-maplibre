@@ -1,5 +1,8 @@
 import type { MarkerAnimation, MarkerState } from '@mapconductor/js-sdk-core';
-import { markerIconToNative, type NativeMarkerIconPayload } from '@mapconductor/js-sdk-react/native';
+import {
+  markerIconToNative,
+  type NativeMarkerIconPayload,
+} from '@mapconductor/js-sdk-react/native';
 
 export interface NativeMapLibreMarkerState {
   id: string;
