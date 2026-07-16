@@ -292,6 +292,12 @@ class MapLibreMapViewWrapper(context: Context) :
             emitMarkerScreenPositions()
             emitInfoBubbleScreenPositions()
         }
+        controller.setMapClickListener {
+            if (!nativeMapExtensionHost.dispatchMapClick(it, pendingCameraPosition.zoom)) {
+                emitPointEvent("topMapClick", it)
+            }
+        }
+        controller.setMapLongClickListener { emitPointEvent("topMapLongClick", it) }
     }
 
     fun clearOverlays() {
@@ -630,6 +636,24 @@ class MapLibreMapViewWrapper(context: Context) :
             Arguments.createMap().apply {
                 putInt("generation", generation)
                 putInt("sequence", sequence)
+            },
+        )
+    }
+
+    private fun emitPointEvent(
+        eventName: String,
+        point: GeoPoint,
+    ) {
+        emit(
+            eventName,
+            Arguments.createMap().apply {
+                putMap(
+                    "point",
+                    Arguments.createMap().apply {
+                        putDouble("latitude", point.latitude)
+                        putDouble("longitude", point.longitude)
+                    },
+                )
             },
         )
     }
