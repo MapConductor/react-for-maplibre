@@ -12,7 +12,6 @@ export type MapLibreActualMarker = PointFeature;
 export const MapLibreMarkerProp = {
   ID: 'mc-id',
   ICON_ID: 'mc-icon-id',
-  ICON_OFFSET: 'mc-offset',
   Z_INDEX: 'mc-z-index',
 } as const;
 
@@ -75,7 +74,7 @@ export class MarkerLayer {
             'icon-ignore-placement': true,
             'symbol-sort-key': ['get', MapLibreMarkerProp.Z_INDEX],
             'icon-anchor': 'top-left',
-            'icon-offset': ['get', MapLibreMarkerProp.ICON_OFFSET] as ExpressionSpecification,
+            'icon-offset': [0, 0],
           },
           paint: {
             'icon-translate-anchor': 'map',
@@ -99,5 +98,26 @@ export class MarkerLayer {
     } catch {
       return false;
     }
+  }
+
+  setIconOffsets(
+    offsets: ReadonlyMap<string, [number, number]>,
+    fallback: [number, number],
+  ): void {
+    if (!this.holder.map.getLayer(this.layerId)) return;
+    if (offsets.size === 0) {
+      this.holder.map.setLayoutProperty(this.layerId, 'icon-offset', fallback);
+      return;
+    }
+    const expression: unknown[] = ['match', ['get', MapLibreMarkerProp.ICON_ID]];
+    for (const [iconId, offset] of offsets) {
+      expression.push(iconId, ['literal', offset]);
+    }
+    expression.push(['literal', fallback]);
+    this.holder.map.setLayoutProperty(
+      this.layerId,
+      'icon-offset',
+      expression as ExpressionSpecification,
+    );
   }
 }

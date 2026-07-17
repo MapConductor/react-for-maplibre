@@ -1,5 +1,5 @@
-import type { HostComponent, ViewProps } from 'react-native';
-import { codegenNativeComponent } from 'react-native';
+import type { ViewProps } from 'react-native';
+import { requireNativeComponent } from 'react-native';
 import type { GeoPoint, MapCameraPosition, MarkerTilingOptions } from '@mapconductor/js-sdk-core';
 import type { NativeMapExtensionEvent } from '@mapconductor/js-sdk-react/native';
 
@@ -117,7 +117,7 @@ export function toNativeCameraPosition(cameraPosition: MapCameraPosition | undef
   };
 }
 
-export default codegenNativeComponent<NativeMapLibreViewProps>(
+export default requireNativeComponent<NativeMapLibreViewProps>(
   // Align to android/src/main/java/com/mapconductor/react/maplibre/MapConductorMapLibreViewManager.kt (REACT_CLASS)
   'MapLibreMapView'
-) as HostComponent<NativeMapLibreViewProps>;
+);

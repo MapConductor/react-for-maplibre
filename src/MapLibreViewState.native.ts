@@ -27,7 +27,6 @@ export class MapLibreViewState
   private _cameraPosition: MapCameraPosition;
   private _mapDesignType: MapLibreMapDesignType;
   private _controller: MapViewControllerInterface | null = null;
-  private _holder: MapViewHolder<unknown, unknown> | null = null;
   private _cameraPositionChangeListener: ((camera: MapCameraPosition) => void) | null = null;
 
   constructor({
@@ -74,16 +73,12 @@ export class MapLibreViewState
   }
 
   override getMapViewHolder(): MapViewHolder<unknown, unknown> | null {
-    return this._holder;
+    return this._controller?.holder ?? null;
   }
 
   setController(ctrl: MapViewControllerInterface | null): void {
     this._controller = ctrl;
     if (ctrl) void ctrl.moveCamera(this._cameraPosition);
-  }
-
-  setMapViewHolder(holder: MapViewHolder<unknown, unknown> | null): void {
-    this._holder = holder;
   }
 
   updateCameraPosition(camera: MapCameraPosition): void {

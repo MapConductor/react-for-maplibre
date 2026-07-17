@@ -3,6 +3,7 @@ import { findNodeHandle, StyleSheet, View } from 'react-native';
 import { GeoPoint, MapCameraPosition } from '@mapconductor/js-sdk-core';
 import {
   InfoBubbleLayer,
+  MapAttributionOverlay,
   MapContext,
   MapViewScope,
   MapViewScopeProvider,
@@ -48,6 +49,7 @@ export function MapLibreView({
   );
   const [infoBubblePositions, setInfoBubblePositions] = useState<InfoBubblePositionRequest[]>([]);
   const [isReady, setIsReady] = useState(false);
+  const [attributionCamera, setAttributionCamera] = useState(() => state.cameraPosition);
   const [infoBubbleScreenPositions, setInfoBubbleScreenPositions] =
     useState<InfoBubbleScreenPositionMap>(() => new Map());
 
@@ -115,7 +117,6 @@ export function MapLibreView({
 
   useEffect(() => {
     state.setController(controller);
-    state.setMapViewHolder(controller.holder);
 
     controller.setMapInitializedListener(() => onMapLoadedRef.current?.(state));
     controller.setMapClickListener((point) => onMapClickRef.current?.(point));
@@ -135,7 +136,6 @@ export function MapLibreView({
 
     return () => {
       state.setController(null);
-      state.setMapViewHolder(null);
       controller.destroy();
     };
   }, [controller, state]);
@@ -165,17 +165,21 @@ export function MapLibreView({
           onMapLongClick={(event) =>
             controller.onNativeMapLongClick(GeoPoint.from(event.nativeEvent.point))
           }
-          onCameraMoveStart={(event) =>
-            controller.onNativeCameraMoveStart(
-              MapCameraPosition.from(event.nativeEvent.cameraPosition)
-            )
-          }
-          onCameraMove={(event) =>
-            controller.onNativeCameraMove(MapCameraPosition.from(event.nativeEvent.cameraPosition))
-          }
-          onCameraMoveEnd={(event) =>
-            controller.onNativeCameraMoveEnd(MapCameraPosition.from(event.nativeEvent.cameraPosition))
-          }
+          onCameraMoveStart={(event) => {
+            const camera = MapCameraPosition.from(event.nativeEvent.cameraPosition);
+            setAttributionCamera(camera);
+            controller.onNativeCameraMoveStart(camera);
+          }}
+          onCameraMove={(event) => {
+            const camera = MapCameraPosition.from(event.nativeEvent.cameraPosition);
+            setAttributionCamera(camera);
+            controller.onNativeCameraMove(camera);
+          }}
+          onCameraMoveEnd={(event) => {
+            const camera = MapCameraPosition.from(event.nativeEvent.cameraPosition);
+            setAttributionCamera(camera);
+            controller.onNativeCameraMoveEnd(camera);
+          }}
           onMarkerClick={(event) => controller.onNativeMarkerClick(event.nativeEvent.markerId)}
           onCircleClick={(event) =>
             controller.onNativeCircleClick(
@@ -254,6 +258,11 @@ export function MapLibreView({
           markerScreenPositions={markerScreenPositions}
           infoBubbleScreenPositions={infoBubbleScreenPositions}
           onPositionRequestsChange={setInfoBubblePositions}
+        />
+        <MapAttributionOverlay
+          scope={scope}
+          camera={attributionCamera}
+          designAttributionRules={state.mapDesignType.attributionRules}
         />
         {children}
       </View>

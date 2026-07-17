@@ -7,6 +7,9 @@ module.exports = {
           'import com.mapconductor.react.maplibre.MapConductorMapLibrePackage;',
         packageInstance: 'new MapConductorMapLibrePackage()',
       },
+      ios: {
+        sourceDir: './ios',
+      },
     },
   },
 };

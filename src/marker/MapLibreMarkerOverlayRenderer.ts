@@ -85,6 +85,7 @@ export class MapLibreMarkerOverlayRenderer extends AbstractMarkerOverlayRenderer
     await this.ensureImages();
     this.redraw();
     this.drawDragLayer();
+    this.syncIconOffsets();
     this.removeUnusedImages();
   }
 
@@ -132,6 +133,7 @@ export class MapLibreMarkerOverlayRenderer extends AbstractMarkerOverlayRenderer
     entity.marker = await this.createMarkerFeature(state, bitmapIcon);
     this.dragLayer.selected = entity;
     this.drawDragLayer();
+    this.syncIconOffsets();
   }
 
   drawDragLayer(): void {
@@ -146,6 +148,7 @@ export class MapLibreMarkerOverlayRenderer extends AbstractMarkerOverlayRenderer
     await this.ensureImages();
     this.redraw();
     this.drawDragLayer();
+    this.syncIconOffsets();
   }
 
   private async createMarkerFeature(
@@ -156,7 +159,6 @@ export class MapLibreMarkerOverlayRenderer extends AbstractMarkerOverlayRenderer
     const requestedIconId = customIconId ?? DEFAULT_ICON_ID;
     const imageAvailable = await this.ensureImage(requestedIconId, bitmapIcon);
     const iconId = imageAvailable ? requestedIconId : DEFAULT_ICON_ID;
-    const offsetIcon = imageAvailable ? bitmapIcon : this.defaultMarkerIcon;
 
     return {
       type: 'Feature',
@@ -168,7 +170,6 @@ export class MapLibreMarkerOverlayRenderer extends AbstractMarkerOverlayRenderer
       properties: {
         [MapLibreMarkerProp.ID]: state.id,
         [MapLibreMarkerProp.ICON_ID]: iconId,
-        [MapLibreMarkerProp.ICON_OFFSET]: createIconOffset(offsetIcon),
         [MapLibreMarkerProp.Z_INDEX]: resolveZIndex(state),
       },
     };
@@ -272,6 +273,16 @@ export class MapLibreMarkerOverlayRenderer extends AbstractMarkerOverlayRenderer
       }
       this.pendingImageRemovals.delete(id);
     }
+  }
+
+  private syncIconOffsets(): void {
+    const offsets = new Map<string, [number, number]>();
+    for (const [iconId, bitmapIcon] of this.iconBitmaps) {
+      offsets.set(iconId, createIconOffset(bitmapIcon));
+    }
+    const fallback = createIconOffset(this.defaultMarkerIcon);
+    this.markerLayer.setIconOffsets(offsets, fallback);
+    this.dragLayer.setIconOffsets(offsets, fallback);
   }
 
   buildEntity(

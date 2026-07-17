@@ -10,7 +10,6 @@ import {
   createRandomId,
 } from '@mapconductor/js-sdk-core';
 import { MapLibreDesign, type MapLibreMapDesignType } from './MapLibreDesign';
-import type { MapLibreMapViewHolder } from './MapLibreMapViewHolder';
 
 export interface MapLibreViewStateInterface
   extends MapViewStateInterface<MapLibreMapDesignType> {}
@@ -28,7 +27,6 @@ export class MapLibreViewState
   private _cameraPosition: MapCameraPosition;
   private _mapDesignType: MapLibreMapDesignType;
   private _controller: MapViewControllerInterface | null = null;
-  private _holder: MapLibreMapViewHolder | null = null;
   private _cameraPositionChangeListener: ((camera: MapCameraPosition) => void) | null = null;
 
   constructor({
@@ -77,18 +75,13 @@ export class MapLibreViewState
   }
 
   override getMapViewHolder(): MapViewHolder<unknown, unknown> | null {
-    return this._holder;
+    return this._controller?.holder ?? null;
   }
 
   // Called by MapLibreView when controller is initialized
   setController(ctrl: MapViewControllerInterface | null): void {
     this._controller = ctrl;
     if (ctrl) ctrl.moveCamera(this._cameraPosition);
-  }
-
-  // Called by MapLibreView when map view holder is available
-  setMapViewHolder(holder: MapLibreMapViewHolder | null): void {
-    this._holder = holder;
   }
 
   // Called by MapLibreView when camera position changes

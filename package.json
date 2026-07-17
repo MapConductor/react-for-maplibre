@@ -20,6 +20,8 @@
   },
   "files": [
     "android",
+    "ios",
+    "MapConductorReactForMapLibre.podspec",
     "react-native.config.js",
     "dist"
   ],

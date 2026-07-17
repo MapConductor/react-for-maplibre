@@ -1,4 +1,4 @@
-import type { MapDesignTypeInterface } from '@mapconductor/js-sdk-core';
+import type { AttributionRule, MapDesignTypeInterface } from '@mapconductor/js-sdk-core';
 
 export interface MapLibreMapDesignType extends MapDesignTypeInterface<string> {
   readonly styleJsonURL: string;
@@ -7,10 +7,16 @@ export interface MapLibreMapDesignType extends MapDesignTypeInterface<string> {
 export class MapLibreDesign implements MapLibreMapDesignType {
   readonly id: string;
   readonly styleJsonURL: string;
+  readonly attributionRules: readonly AttributionRule[];
 
-  constructor(id: string, styleJsonURL: string) {
+  constructor(
+    id: string,
+    styleJsonURL: string,
+    attributionRules: readonly AttributionRule[] = []
+  ) {
     this.id = id;
     this.styleJsonURL = styleJsonURL;
+    this.attributionRules = attributionRules;
   }
 
   getValue(): string {

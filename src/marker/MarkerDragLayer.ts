@@ -23,11 +23,21 @@ export class MarkerDragLayer extends MarkerLayer {
     super({ holder, canEditStyle, sourceId, layerId });
   }
 
-  updatePosition(position: GeoPoint): void {
+  updatePosition(position: GeoPoint): boolean {
     const selected = this.selected;
-    if (!selected) return;
+    if (!selected) return false;
 
-    selected.state.position = position;
+    const coordinates = selected.marker?.geometry.coordinates;
+    const changed =
+      coordinates == null ||
+      coordinates[0] !== position.longitude ||
+      coordinates[1] !== position.latitude;
+
+    if (!selected.state.position.equals(position)) {
+      selected.state.position = position;
+    }
+    if (!changed) return false;
+
     if (selected.marker) {
       selected.marker = {
         ...selected.marker,
@@ -39,6 +49,7 @@ export class MarkerDragLayer extends MarkerLayer {
         properties: { ...selected.marker.properties },
       };
     }
+    return true;
   }
 
   drawSelected(): boolean {

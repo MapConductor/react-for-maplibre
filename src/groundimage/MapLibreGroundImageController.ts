@@ -4,13 +4,16 @@ import { MapLibreGroundImageOverlayRenderer } from './MapLibreGroundImageOverlay
 export class MapLibreGroundImageController {
   private readonly groundImageStates = new Map<string, GroundImageState>();
   private readonly groundImageIds = new Set<string>();
+  private readonly pendingUpdates = new Map<string, GroundImageState>();
   private readonly renderer: MapLibreGroundImageOverlayRenderer;
+  private updateFrame: number | null = null;
 
   constructor(renderer: MapLibreGroundImageOverlayRenderer) {
     this.renderer = renderer;
   }
 
   composition(data: GroundImageState[]): void {
+    this.cancelPendingUpdates();
     const nextIds = new Set(data.map((s) => s.id));
     for (const id of [...this.groundImageIds]) {
       if (!nextIds.has(id)) void this.removeById(id);
@@ -23,7 +26,14 @@ export class MapLibreGroundImageController {
 
   update(state: GroundImageState): void {
     this.groundImageStates.set(state.id, state);
-    void this.upsert(state);
+    this.pendingUpdates.set(state.id, state);
+    if (this.updateFrame != null) return;
+    this.updateFrame = requestAnimationFrame(() => {
+      this.updateFrame = null;
+      const updates = Array.from(this.pendingUpdates.values());
+      this.pendingUpdates.clear();
+      for (const pending of updates) void this.upsert(pending);
+    });
   }
 
   has(state: GroundImageState): boolean {
@@ -48,12 +58,20 @@ export class MapLibreGroundImageController {
   }
 
   resync(): void {
+    this.cancelPendingUpdates();
     this.groundImageIds.clear();
     for (const state of this.groundImageStates.values()) void this.upsert(state);
   }
 
   clear(): void {
+    this.cancelPendingUpdates();
     for (const id of [...this.groundImageIds]) void this.removeById(id);
+  }
+
+  private cancelPendingUpdates(): void {
+    if (this.updateFrame != null) cancelAnimationFrame(this.updateFrame);
+    this.updateFrame = null;
+    this.pendingUpdates.clear();
   }
 
   private async upsert(state: GroundImageState): Promise<void> {

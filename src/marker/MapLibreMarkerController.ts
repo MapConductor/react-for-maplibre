@@ -12,6 +12,7 @@ import {
   Settings,
   type GeoPoint,
   type MarkerEntity,
+  type MarkerFingerPrint,
   type MarkerState,
   type RasterLayerState,
 } from '@mapconductor/js-sdk-core';
@@ -100,6 +101,8 @@ export class MapLibreMarkerController extends AbstractMarkerController<MapLibreA
   declare readonly renderer: MapLibreMarkerOverlayRenderer;
 
   private selected: MarkerEntity<MapLibreActualMarker> | null = null;
+  private pendingSelectedPosition: GeoPoint | null = null;
+  private selectedPositionFrame: number | null = null;
 
   // ── Tile rendering ────────────────────────────────────────────────────────
   private readonly tilingOptions: MarkerTilingOptions;
@@ -299,6 +302,13 @@ export class MapLibreMarkerController extends AbstractMarkerController<MapLibreA
   override async update(state: MarkerState): Promise<void> {
     const selected = this.selected;
     if (selected?.state.id === state.id) {
+      const nextFingerPrint = state.fingerPrint();
+      if (hasOnlyPositionChanged(selected.fingerPrint, nextFingerPrint)) {
+        selected.state = state;
+        selected.fingerPrint = nextFingerPrint;
+        this.updateSelectedPosition(state.position);
+        return;
+      }
       await this.renderer.updateSelectedMarker({
         entity: selected,
         state,
@@ -323,6 +333,8 @@ export class MapLibreMarkerController extends AbstractMarkerController<MapLibreA
     if (!entity) {
       const selected = this.selected;
       if (!selected) return;
+      this.cancelSelectedPositionFrame();
+      this.flushSelectedPosition();
       this.setDraggingState(selected.state, false);
       this.renderer.dragLayer.selected = null;
       this.renderer.drawDragLayer();
@@ -332,6 +344,8 @@ export class MapLibreMarkerController extends AbstractMarkerController<MapLibreA
       return;
     }
 
+    this.cancelSelectedPositionFrame();
+    this.pendingSelectedPosition = null;
     this.selected = entity;
     this.markerManager.removeEntity(entity.state.id);
     this.setDraggingState(entity.state, true);
@@ -342,8 +356,12 @@ export class MapLibreMarkerController extends AbstractMarkerController<MapLibreA
   }
 
   updateSelectedPosition(position: GeoPoint): void {
-    this.renderer.dragLayer.updatePosition(position);
-    this.renderer.drawDragLayer();
+    this.pendingSelectedPosition = position;
+    if (this.selectedPositionFrame != null) return;
+    this.selectedPositionFrame = requestAnimationFrame(() => {
+      this.selectedPositionFrame = null;
+      this.flushSelectedPosition();
+    });
   }
 
   async resync(): Promise<void> {
@@ -351,6 +369,8 @@ export class MapLibreMarkerController extends AbstractMarkerController<MapLibreA
   }
 
   override async clear(): Promise<void> {
+    this.cancelSelectedPositionFrame();
+    this.pendingSelectedPosition = null;
     if (this.selected) {
       this.setDraggingState(this.selected.state, false);
       this.selected = null;
@@ -363,6 +383,8 @@ export class MapLibreMarkerController extends AbstractMarkerController<MapLibreA
   }
 
   override destroy(): void {
+    this.cancelSelectedPositionFrame();
+    this.pendingSelectedPosition = null;
     this.tileGeneration++;
     this.selected = null;
     this.renderer.dragLayer.selected = null;
@@ -371,6 +393,23 @@ export class MapLibreMarkerController extends AbstractMarkerController<MapLibreA
       this.tileRouteId = null;
     }
     super.destroy();
+  }
+
+  private flushSelectedPosition(): void {
+    const position = this.pendingSelectedPosition;
+    this.pendingSelectedPosition = null;
+    if (!position || !this.selected) return;
+    if (this.renderer.dragLayer.updatePosition(position)) {
+      this.selected.fingerPrint = this.selected.state.fingerPrint();
+      this.renderer.drawDragLayer();
+      this.holder.map.triggerRepaint();
+    }
+  }
+
+  private cancelSelectedPositionFrame(): void {
+    if (this.selectedPositionFrame == null) return;
+    cancelAnimationFrame(this.selectedPositionFrame);
+    this.selectedPositionFrame = null;
   }
 
   private hasCompositionChanges(data: MarkerState[]): boolean {
@@ -387,6 +426,20 @@ export class MapLibreMarkerController extends AbstractMarkerController<MapLibreA
       return !entity || !fingerPrintEquals(state.fingerPrint(), entity.fingerPrint);
     });
   }
+}
+
+function hasOnlyPositionChanged(
+  previous: MarkerFingerPrint,
+  current: MarkerFingerPrint,
+): boolean {
+  return (
+    previous.id === current.id &&
+    previous.icon === current.icon &&
+    previous.clickable === current.clickable &&
+    previous.draggable === current.draggable &&
+    previous.animation === current.animation &&
+    previous.zIndex === current.zIndex
+  );
 }
 
 function generateId(): string {

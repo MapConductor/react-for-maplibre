@@ -126,7 +126,7 @@ export function createRasterSource(source: RasterLayerSource): SourceSpecificati
         minzoom: source.minZoom ?? 0,
         maxzoom: source.maxZoom ?? 22,
         scheme: source.scheme === TileScheme.TMS ? 'tms' : 'xyz',
-        attribution: source.attribution ?? '',
+        attribution: '',
       };
     case 'TileJson':
       return { type: 'raster', url: source.url };

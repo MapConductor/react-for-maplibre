@@ -7,7 +7,6 @@ import type { MapLibreViewState } from './MapLibreViewState.native';
 export interface MapLibreViewProps extends MapViewBaseProps<MapLibreViewState> {
   maxZoom?: number;
   minZoom?: number;
-  projection?: 'mercator' | 'globe';
   className?: string;
   containerStyle?: StyleProp<ViewStyle>;
   onError?: (error: Error) => void;

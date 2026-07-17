@@ -5,6 +5,7 @@ import {
   MapViewScopeProvider,
   InfoBubbleOverlay,
   MarkerAnimationLayer,
+  MapAttributionOverlay,
   type InfoBubbleEntry,
 } from '@mapconductor/js-sdk-react';
 import {
@@ -16,11 +17,11 @@ import {
   type MarkerAnimationOverlayEntry,
 } from '@mapconductor/js-sdk-core';
 import { MapLibreProvider, MapLibreConfig } from './MapLibreProvider';
-import { MapLibreViewState } from './MapLibreViewState';
+import type { MapLibreViewStateInterface } from './MapLibreViewState';
 import type { MapLibreViewController } from './MapLibreViewController';
 import type { StyleSpecification } from 'maplibre-gl';
 
-export interface MapLibreViewProps extends MapViewBaseProps<MapLibreViewState> {
+export interface MapLibreViewProps extends MapViewBaseProps<MapLibreViewStateInterface> {
   // Web-specific
   maxZoom?: number;
   minZoom?: number;
@@ -213,6 +214,11 @@ export function MapLibreView({
           ref={containerRef}
           className={className}
           style={{ width: '100%', height: '100%' }}
+        />
+        <MapAttributionOverlay
+          scope={scope}
+          camera={typedControllerRef.current?.getCameraPosition() ?? state.cameraPosition}
+          designAttributionRules={state.mapDesignType.attributionRules}
         />
         {animationEntries.length > 0 && typedControllerRef.current && (
           <MarkerAnimationLayer
