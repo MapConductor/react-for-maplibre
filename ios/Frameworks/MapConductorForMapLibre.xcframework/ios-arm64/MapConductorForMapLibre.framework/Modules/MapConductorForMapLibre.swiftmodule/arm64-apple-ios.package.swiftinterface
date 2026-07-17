@@ -22,7 +22,8 @@ public typealias MapLibreMapDesignType = any MapConductorForMapLibre.MapLibreMap
 public struct MapLibreDesign : MapConductorForMapLibre.MapLibreMapDesignTypeProtocol, Swift.Hashable {
   public let id: Swift.String
   public let styleJsonURL: Swift.String
-  public init(id: Swift.String, styleJsonURL: Swift.String)
+  public let attributionRules: [MapConductorCore.AttributionRule]
+  public init(id: Swift.String, styleJsonURL: Swift.String, attributionRules: [MapConductorCore.AttributionRule] = [])
   public func getValue() -> Swift.String
   public static let DemoTiles: MapConductorForMapLibre.MapLibreDesign
   public static let MapTilerTonerJa: MapConductorForMapLibre.MapLibreDesign

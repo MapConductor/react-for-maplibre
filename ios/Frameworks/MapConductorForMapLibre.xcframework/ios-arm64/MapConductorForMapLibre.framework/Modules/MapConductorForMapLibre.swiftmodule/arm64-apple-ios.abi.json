@@ -221,9 +221,69 @@
             ]
           },
           {
+            "kind": "Var",
+            "name": "attributionRules",
+            "printedName": "attributionRules",
+            "children": [
+              {
+                "kind": "TypeNominal",
+                "name": "Array",
+                "printedName": "[MapConductorCore.AttributionRule]",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "AttributionRule",
+                    "printedName": "MapConductorCore.AttributionRule",
+                    "usr": "s:16MapConductorCore15AttributionRuleV"
+                  }
+                ],
+                "usr": "s:Sa"
+              }
+            ],
+            "declKind": "Var",
+            "usr": "s:015MapConductorForA5Libre0aD6DesignV16attributionRulesSay0aB4Core15AttributionRuleVGvp",
+            "mangledName": "$s015MapConductorForA5Libre0aD6DesignV16attributionRulesSay0aB4Core15AttributionRuleVGvp",
+            "moduleName": "MapConductorForMapLibre",
+            "declAttributes": [
+              "HasStorage",
+              "AccessControl"
+            ],
+            "isLet": true,
+            "hasStorage": true,
+            "accessors": [
+              {
+                "kind": "Accessor",
+                "name": "Get",
+                "printedName": "Get()",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "Array",
+                    "printedName": "[MapConductorCore.AttributionRule]",
+                    "children": [
+                      {
+                        "kind": "TypeNominal",
+                        "name": "AttributionRule",
+                        "printedName": "MapConductorCore.AttributionRule",
+                        "usr": "s:16MapConductorCore15AttributionRuleV"
+                      }
+                    ],
+                    "usr": "s:Sa"
+                  }
+                ],
+                "declKind": "Accessor",
+                "usr": "s:015MapConductorForA5Libre0aD6DesignV16attributionRulesSay0aB4Core15AttributionRuleVGvg",
+                "mangledName": "$s015MapConductorForA5Libre0aD6DesignV16attributionRulesSay0aB4Core15AttributionRuleVGvg",
+                "moduleName": "MapConductorForMapLibre",
+                "implicit": true,
+                "accessorKind": "get"
+              }
+            ]
+          },
+          {
             "kind": "Constructor",
             "name": "init",
-            "printedName": "init(id:styleJsonURL:)",
+            "printedName": "init(id:styleJsonURL:attributionRules:)",
             "children": [
               {
                 "kind": "TypeNominal",
@@ -242,11 +302,26 @@
                 "name": "String",
                 "printedName": "Swift.String",
                 "usr": "s:SS"
+              },
+              {
+                "kind": "TypeNominal",
+                "name": "Array",
+                "printedName": "[MapConductorCore.AttributionRule]",
+                "children": [
+                  {
+                    "kind": "TypeNominal",
+                    "name": "AttributionRule",
+                    "printedName": "MapConductorCore.AttributionRule",
+                    "usr": "s:16MapConductorCore15AttributionRuleV"
+                  }
+                ],
+                "hasDefaultArg": true,
+                "usr": "s:Sa"
               }
             ],
             "declKind": "Constructor",
-            "usr": "s:015MapConductorForA5Libre0aD6DesignV2id12styleJsonURLACSS_SStcfc",
-            "mangledName": "$s015MapConductorForA5Libre0aD6DesignV2id12styleJsonURLACSS_SStcfc",
+            "usr": "s:015MapConductorForA5Libre0aD6DesignV2id12styleJsonURL16attributionRulesACSS_SSSay0aB4Core15AttributionRuleVGtcfc",
+            "mangledName": "$s015MapConductorForA5Libre0aD6DesignV2id12styleJsonURL16attributionRulesACSS_SSSay0aB4Core15AttributionRuleVGtcfc",
             "moduleName": "MapConductorForMapLibre",
             "declAttributes": [
               "AccessControl"
@@ -2486,183 +2561,190 @@
     },
     {
       "filePath": "\/Users\/masashi\/mapconductor\/ios-sdk\/ios-for-maplibre\/Sources\/MapConductorForMapLibre\/MapLibreDesign.swift",
+      "kind": "Array",
+      "offset": 531,
+      "length": 2,
+      "value": "[]"
+    },
+    {
+      "filePath": "\/Users\/masashi\/mapconductor\/ios-sdk\/ios-for-maplibre\/Sources\/MapConductorForMapLibre\/MapLibreDesign.swift",
       "kind": "StringLiteral",
-      "offset": 672,
+      "offset": 814,
       "length": 6,
       "value": "\"demo\""
     },
     {
       "filePath": "\/Users\/masashi\/mapconductor\/ios-sdk\/ios-for-maplibre\/Sources\/MapConductorForMapLibre\/MapLibreDesign.swift",
       "kind": "StringLiteral",
-      "offset": 702,
+      "offset": 844,
       "length": 43,
       "value": "\"https:\/\/demotiles.maplibre.org\/style.json\""
     },
     {
       "filePath": "\/Users\/masashi\/mapconductor\/ios-sdk\/ios-for-maplibre\/Sources\/MapConductorForMapLibre\/MapLibreDesign.swift",
       "kind": "StringLiteral",
-      "offset": 821,
+      "offset": 963,
       "length": 19,
       "value": "\"maptiler-toner-ja\""
     },
     {
       "filePath": "\/Users\/masashi\/mapconductor\/ios-sdk\/ios-for-maplibre\/Sources\/MapConductorForMapLibre\/MapLibreDesign.swift",
       "kind": "StringLiteral",
-      "offset": 864,
+      "offset": 1006,
       "length": 67,
       "value": "\"https:\/\/tile.openstreetmap.jp\/styles\/maptiler-toner-ja\/style.json\""
     },
     {
       "filePath": "\/Users\/masashi\/mapconductor\/ios-sdk\/ios-for-maplibre\/Sources\/MapConductorForMapLibre\/MapLibreDesign.swift",
       "kind": "StringLiteral",
-      "offset": 1007,
+      "offset": 1149,
       "length": 19,
       "value": "\"maptiler-toner-en\""
     },
     {
       "filePath": "\/Users\/masashi\/mapconductor\/ios-sdk\/ios-for-maplibre\/Sources\/MapConductorForMapLibre\/MapLibreDesign.swift",
       "kind": "StringLiteral",
-      "offset": 1050,
+      "offset": 1192,
       "length": 67,
       "value": "\"https:\/\/tile.openstreetmap.jp\/styles\/maptiler-toner-en\/style.json\""
     },
     {
       "filePath": "\/Users\/masashi\/mapconductor\/ios-sdk\/ios-for-maplibre\/Sources\/MapConductorForMapLibre\/MapLibreDesign.swift",
       "kind": "StringLiteral",
-      "offset": 1187,
+      "offset": 1329,
       "length": 12,
       "value": "\"osm-bright\""
     },
     {
       "filePath": "\/Users\/masashi\/mapconductor\/ios-sdk\/ios-for-maplibre\/Sources\/MapConductorForMapLibre\/MapLibreDesign.swift",
       "kind": "StringLiteral",
-      "offset": 1223,
+      "offset": 1365,
       "length": 60,
       "value": "\"https:\/\/tile.openstreetmap.jp\/styles\/osm-bright\/style.json\""
     },
     {
       "filePath": "\/Users\/masashi\/mapconductor\/ios-sdk\/ios-for-maplibre\/Sources\/MapConductorForMapLibre\/MapLibreDesign.swift",
       "kind": "StringLiteral",
-      "offset": 1355,
+      "offset": 1497,
       "length": 15,
       "value": "\"osm-bright-en\""
     },
     {
       "filePath": "\/Users\/masashi\/mapconductor\/ios-sdk\/ios-for-maplibre\/Sources\/MapConductorForMapLibre\/MapLibreDesign.swift",
       "kind": "StringLiteral",
-      "offset": 1394,
+      "offset": 1536,
       "length": 63,
       "value": "\"https:\/\/tile.openstreetmap.jp\/styles\/osm-bright-en\/style.json\""
     },
     {
       "filePath": "\/Users\/masashi\/mapconductor\/ios-sdk\/ios-for-maplibre\/Sources\/MapConductorForMapLibre\/MapLibreDesign.swift",
       "kind": "StringLiteral",
-      "offset": 1529,
+      "offset": 1671,
       "length": 15,
       "value": "\"osm-bright-ja\""
     },
     {
       "filePath": "\/Users\/masashi\/mapconductor\/ios-sdk\/ios-for-maplibre\/Sources\/MapConductorForMapLibre\/MapLibreDesign.swift",
       "kind": "StringLiteral",
-      "offset": 1568,
+      "offset": 1710,
       "length": 63,
       "value": "\"https:\/\/tile.openstreetmap.jp\/styles\/osm-bright-ja\/style.json\""
     },
     {
       "filePath": "\/Users\/masashi\/mapconductor\/ios-sdk\/ios-for-maplibre\/Sources\/MapConductorForMapLibre\/MapLibreDesign.swift",
       "kind": "StringLiteral",
-      "offset": 1707,
+      "offset": 1849,
       "length": 19,
       "value": "\"maptiler-basic-en\""
     },
     {
       "filePath": "\/Users\/masashi\/mapconductor\/ios-sdk\/ios-for-maplibre\/Sources\/MapConductorForMapLibre\/MapLibreDesign.swift",
       "kind": "StringLiteral",
-      "offset": 1750,
+      "offset": 1892,
       "length": 67,
       "value": "\"https:\/\/tile.openstreetmap.jp\/styles\/maptiler-basic-en\/style.json\""
     },
     {
       "filePath": "\/Users\/masashi\/mapconductor\/ios-sdk\/ios-for-maplibre\/Sources\/MapConductorForMapLibre\/MapLibreDesign.swift",
       "kind": "StringLiteral",
-      "offset": 1890,
+      "offset": 2032,
       "length": 14,
       "value": "\"openmaptiles\""
     },
     {
       "filePath": "\/Users\/masashi\/mapconductor\/ios-sdk\/ios-for-maplibre\/Sources\/MapConductorForMapLibre\/MapLibreDesign.swift",
       "kind": "StringLiteral",
-      "offset": 1928,
+      "offset": 2070,
       "length": 62,
       "value": "\"https:\/\/tile.openstreetmap.jp\/styles\/openmaptiles\/style.json\""
     },
     {
       "filePath": "\/Users\/masashi\/mapconductor\/ios-sdk\/ios-for-maplibre\/Sources\/MapConductorForMapLibre\/MapLibreDesign.swift",
       "kind": "StringLiteral",
-      "offset": 2066,
+      "offset": 2208,
       "length": 19,
       "value": "\"maptiler-basic-ja\""
     },
     {
       "filePath": "\/Users\/masashi\/mapconductor\/ios-sdk\/ios-for-maplibre\/Sources\/MapConductorForMapLibre\/MapLibreDesign.swift",
       "kind": "StringLiteral",
-      "offset": 2109,
+      "offset": 2251,
       "length": 67,
       "value": "\"https:\/\/tile.openstreetmap.jp\/styles\/maptiler-basic-ja\/style.json\""
     },
     {
       "filePath": "\/Users\/masashi\/mapconductor\/ios-sdk\/ios-for-maplibre\/Sources\/MapConductorForMapLibre\/MapLibreMapView.swift",
       "kind": "StringLiteral",
-      "offset": 7179,
+      "offset": 7395,
       "length": 21,
       "value": "\"mapView unavailable\""
     },
     {
       "filePath": "\/Users\/masashi\/mapconductor\/ios-sdk\/ios-for-maplibre\/Sources\/MapConductorForMapLibre\/MapLibreMapView.swift",
       "kind": "StringLiteral",
-      "offset": 7275,
+      "offset": 7491,
       "length": 50,
       "value": "\"mapconductor-cluster-source-\""
     },
     {
       "filePath": "\/Users\/masashi\/mapconductor\/ios-sdk\/ios-for-maplibre\/Sources\/MapConductorForMapLibre\/MapLibreMapView.swift",
       "kind": "StringLiteral",
-      "offset": 7324,
+      "offset": 7540,
       "length": 2,
       "value": "\"\""
     },
     {
       "filePath": "\/Users\/masashi\/mapconductor\/ios-sdk\/ios-for-maplibre\/Sources\/MapConductorForMapLibre\/MapLibreMapView.swift",
       "kind": "StringLiteral",
-      "offset": 7356,
+      "offset": 7572,
       "length": 49,
       "value": "\"mapconductor-cluster-layer-\""
     },
     {
       "filePath": "\/Users\/masashi\/mapconductor\/ios-sdk\/ios-for-maplibre\/Sources\/MapConductorForMapLibre\/MapLibreMapView.swift",
       "kind": "StringLiteral",
-      "offset": 7404,
+      "offset": 7620,
       "length": 1,
       "value": "\"\""
     },
     {
       "filePath": "\/Users\/masashi\/mapconductor\/ios-sdk\/ios-for-maplibre\/Sources\/MapConductorForMapLibre\/MapLibreMapView.swift",
       "kind": "BooleanLiteral",
-      "offset": 7632,
+      "offset": 7848,
       "length": 5,
       "value": "false"
     },
     {
       "filePath": "\/Users\/masashi\/mapconductor\/ios-sdk\/ios-for-maplibre\/Sources\/MapConductorForMapLibre\/MapLibreMapView.swift",
       "kind": "BooleanLiteral",
-      "offset": 7686,
+      "offset": 7902,
       "length": 5,
       "value": "false"
     },
     {
       "filePath": "\/Users\/masashi\/mapconductor\/ios-sdk\/ios-for-maplibre\/Sources\/MapConductorForMapLibre\/MapLibreMapView.swift",
       "kind": "BooleanLiteral",
-      "offset": 7732,
+      "offset": 7948,
       "length": 5,
       "value": "false"
     },
