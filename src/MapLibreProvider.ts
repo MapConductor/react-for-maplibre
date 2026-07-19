@@ -11,6 +11,7 @@ import {
 } from '@mapconductor/js-sdk-core';
 import { MapLibreViewController } from './MapLibreViewController';
 import { ZoomAltitudeConverter } from './zoom/ZoomAltitudeConverter';
+import { toCameraPosition } from './MapCameraPosition';
 import { MapLibreMapViewHolder } from './MapLibreMapViewHolder';
 import { MapLibreMarkerController } from './marker/MapLibreMarkerController';
 import { MapLibreMarkerEventController } from './marker/MapLibreMarkerEventController';
@@ -64,15 +65,14 @@ export class MapLibreProvider extends MapProvider {
       throw new Error('Container element not found');
     }
 
+    const initialCamera = config.initCameraPosition ? toCameraPosition(config.initCameraPosition) : null;
     const map = new maplibregl.Map({
       container,
       style: config.style || 'https://demotiles.maplibre.org/style.json',
-      center: config.initCameraPosition?.center
-        ? [config.initCameraPosition.center.longitude, config.initCameraPosition.center.latitude]
-        : [0, 0],
-      zoom: ZoomAltitudeConverter.googleZoomToMaplibreZoom(config.initCameraPosition?.zoom ?? 10),
-      bearing: config.initCameraPosition?.bearing || 0,
-      pitch: config.initCameraPosition?.pitch || 0,
+      center: initialCamera?.center ?? [0, 0],
+      zoom: initialCamera?.zoom ?? ZoomAltitudeConverter.googleZoomToMaplibreZoom(10),
+      bearing: initialCamera?.bearing ?? 0,
+      pitch: initialCamera?.tilt ?? 0,
       maxZoom: config.maxZoom !== undefined ? ZoomAltitudeConverter.googleZoomToMaplibreZoom(config.maxZoom) : undefined,
       minZoom: config.minZoom !== undefined ? ZoomAltitudeConverter.googleZoomToMaplibreZoom(config.minZoom) : undefined,
       ...config.options,
@@ -120,6 +120,7 @@ export class MapLibreProvider extends MapProvider {
       groundImageController,
       rasterLayerController,
       styleReadyRef,
+      config.initCameraPosition?.tilt ?? null,
     );
     return this.controller;
   }

@@ -7,3 +7,4 @@ export type { MapLibreMapDesignType } from './MapLibreDesign';
 export type { MapLibreViewStateInterface } from './MapLibreViewState';
 export type { MapLibreConfig } from './MapLibreProvider';
 export type { MapLibreViewProps } from './MapLibreView.web';
+export { ZoomAltitudeConverter } from './zoom/ZoomAltitudeConverter';

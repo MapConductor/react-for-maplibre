@@ -51,6 +51,7 @@ export class MapLibreViewController
 {
   private readonly mapInstance: maplibregl.Map;
   private initialized = false;
+  private logicalTiltHint: number | null = null;
   private readonly styleReadyRef: { current: boolean };
 
   readonly holder: MapLibreMapViewHolder;
@@ -74,6 +75,7 @@ export class MapLibreViewController
     groundImageController: MapLibreGroundImageController,
     rasterLayerController: MapLibreRasterLayerController,
     styleReadyRef: { current: boolean } = { current: true },
+    logicalTiltHint: number | null = null,
   ) {
     super();
     this.mapInstance = holder.map;
@@ -81,6 +83,7 @@ export class MapLibreViewController
     this.holder = holder;
     this.holder.setController(this);
     this.styleReadyRef = styleReadyRef;
+    this.logicalTiltHint = logicalTiltHint;
     this.markerController = markerController;
     this.markerEventController = markerEventController;
     this.circleController = circleController;
@@ -220,6 +223,7 @@ export class MapLibreViewController
   }
 
   moveCamera(position: MapCameraPosition): Promise<boolean> {
+    this.logicalTiltHint = position.tilt;
     const cam = toCameraPosition(position);
     return new Promise((resolve) => {
       this.mapInstance.once('moveend', () => resolve(true));
@@ -227,12 +231,13 @@ export class MapLibreViewController
         center: cam.center,
         zoom: cam.zoom,
         bearing: cam.bearing,
-        pitch: cam.pitch,
+        pitch: cam.tilt,
       });
     });
   }
 
   animateCamera(position: MapCameraPosition, options?: CameraOptions): Promise<boolean> {
+    this.logicalTiltHint = position.tilt;
     const cam = toCameraPosition(position);
     return new Promise((resolve) => {
       this.mapInstance.once('moveend', () => resolve(true));
@@ -241,7 +246,7 @@ export class MapLibreViewController
         center: cam.center,
         zoom: cam.zoom,
         bearing: cam.bearing,
-        pitch: cam.pitch,
+        pitch: cam.tilt,
         duration: options?.duration || 500,
         ...(padding != null ? { padding } : {}),
       });
@@ -267,7 +272,8 @@ export class MapLibreViewController
       center: this.mapInstance.getCenter(),
       zoom: this.mapInstance.getZoom(),
       bearing: this.mapInstance.getBearing(),
-      pitch: this.mapInstance.getPitch(),
+      tilt: this.mapInstance.getPitch(),
+      logicalTiltHint: this.logicalTiltHint,
     });
     if (!camera) return camera;
     const visibleRegion = this.getVisibleRegion();
