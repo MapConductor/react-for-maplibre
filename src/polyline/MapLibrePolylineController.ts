@@ -20,17 +20,9 @@ export class MapLibrePolylineController extends PolylineController<MapLibreActua
     super({ polylineManager: renderer.polylineManager, renderer });
   }
 
-  async composition(data: PolylineState[]): Promise<void> {
-    await this.add(data);
-  }
-
   override async add(data: PolylineState[]): Promise<void> {
     await super.add(data);
     this.ensureClickHandler();
-  }
-
-  has(state: PolylineState): boolean {
-    return this.polylineManager.hasEntity(state.id);
   }
 
   async resync(): Promise<void> {

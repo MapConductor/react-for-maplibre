@@ -20,10 +20,6 @@ export class MapLibreCircleController extends CircleController<MapLibreActualCir
     super({ circleManager: renderer.circleManager, renderer });
   }
 
-  async composition(data: CircleState[]): Promise<void> {
-    await this.add(data);
-  }
-
   override async add(data: CircleState[]): Promise<void> {
     await super.add(data);
     this.ensureClickHandler();
@@ -32,10 +28,6 @@ export class MapLibreCircleController extends CircleController<MapLibreActualCir
   override async update(state: CircleState): Promise<void> {
     await super.update(state);
     await this.renderer.redraw();
-  }
-
-  has(state: CircleState): boolean {
-    return this.circleManager.hasEntity(state.id);
   }
 
   async resync(): Promise<void> {
