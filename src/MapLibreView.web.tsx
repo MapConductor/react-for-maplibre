@@ -12,6 +12,7 @@ import {
   MapViewBaseProps,
   OverlayCollector,
   MarkerTilingOptions,
+  type GeoRectBounds,
   type MapCameraPosition,
   type GeoPoint,
   type MarkerAnimationOverlayEntry,
@@ -21,15 +22,20 @@ import type { MapLibreViewStateInterface } from './MapLibreViewState';
 import type { MapLibreViewController } from './MapLibreViewController';
 import type { StyleSpecification } from 'maplibre-gl';
 
-export interface MapLibreViewProps extends MapViewBaseProps<MapLibreViewStateInterface> {
+export interface MapLibreMapViewProps extends MapViewBaseProps<MapLibreViewStateInterface> {
   // Web-specific
   maxZoom?: number;
   minZoom?: number;
-  projection?: 'mercator' | 'globe';
+  /** Restricts panning/zooming so the viewport cannot leave this rectangle. */
+  restrictBounds?: GeoRectBounds;
   containerStyle?: React.CSSProperties;
   onError?: (error: Error) => void;
   children?: React.ReactNode;
   markerTilingOptions?: MarkerTilingOptions;
+}
+
+interface InternalMapLibreMapViewProps extends MapLibreMapViewProps {
+  projection: 'mercator' | 'globe';
 }
 
 /**
@@ -38,7 +44,7 @@ export interface MapLibreViewProps extends MapViewBaseProps<MapLibreViewStateInt
  * Note: You must import the MapLibre CSS separately:
  * import '@mapconductor/maplibre/style.css';
  */
-export function MapLibreView({
+function InternalMapLibreMapView({
   state,
   onMapLoaded,
   onMapClick,
@@ -48,13 +54,14 @@ export function MapLibreView({
   onCameraMoveEnd,
   maxZoom,
   minZoom,
-  projection = 'mercator',
+  restrictBounds,
+  projection,
   className,
   containerStyle,
   onError,
   children,
   markerTilingOptions,
-}: MapLibreViewProps) {
+}: InternalMapLibreMapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [provider] = useState(() => new MapLibreProvider());
   const [scope] = useState(() => new MapViewScope());
@@ -91,6 +98,7 @@ export function MapLibreView({
       style,
       maxZoom,
       minZoom,
+      restrictBounds,
       projection,
       initCameraPosition: state.cameraPosition,
       markerTilingOptions,
@@ -256,4 +264,12 @@ export function MapLibreView({
       </MapViewScopeProvider>
     </MapContext.Provider>
   );
+}
+
+export function MapLibreMapView(props: MapLibreMapViewProps) {
+  return <InternalMapLibreMapView {...props} projection="globe" />;
+}
+
+export function MapLibreMapView2D(props: MapLibreMapViewProps) {
+  return <InternalMapLibreMapView {...props} projection="mercator" />;
 }

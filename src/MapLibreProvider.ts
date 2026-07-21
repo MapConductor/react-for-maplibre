@@ -6,6 +6,7 @@ import {
   MarkerTilingOptions,
   PolygonManager,
   PolylineManager,
+  type GeoRectBounds,
   type MapConfig,
   type MapViewControllerInterface,
 } from '@mapconductor/js-sdk-core';
@@ -36,8 +37,18 @@ export interface MapLibreConfig extends MapConfig {
   style?: string | maplibregl.StyleSpecification;
   maxZoom?: number;
   minZoom?: number;
+  /** Restricts panning/zooming so the viewport cannot leave this rectangle. */
+  restrictBounds?: GeoRectBounds;
   projection?: 'mercator' | 'globe';
   markerTilingOptions?: MarkerTilingOptions;
+}
+
+function toLngLatBounds(bounds: GeoRectBounds | undefined): maplibregl.LngLatBoundsLike | undefined {
+  if (!bounds?.southWest || !bounds.northEast) return undefined;
+  return [
+    [bounds.southWest.longitude, bounds.southWest.latitude],
+    [bounds.northEast.longitude, bounds.northEast.latitude],
+  ];
 }
 
 // Sentinel used to silently cancel initialization when destroy() is called before load.
@@ -75,6 +86,7 @@ export class MapLibreProvider extends MapProvider {
       pitch: initialCamera?.tilt ?? 0,
       maxZoom: config.maxZoom !== undefined ? ZoomAltitudeConverter.googleZoomToMaplibreZoom(config.maxZoom) : undefined,
       minZoom: config.minZoom !== undefined ? ZoomAltitudeConverter.googleZoomToMaplibreZoom(config.minZoom) : undefined,
+      maxBounds: toLngLatBounds(config.restrictBounds),
       ...config.options,
     } as maplibregl.MapOptions);
 

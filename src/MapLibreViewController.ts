@@ -227,7 +227,8 @@ export class MapLibreViewController
     const cam = toCameraPosition(position);
     return new Promise((resolve) => {
       this.mapInstance.once('moveend', () => resolve(true));
-      this.mapInstance.flyTo({
+      // jumpTo (not flyTo) so duration = 0 moves the camera instantly with no animation.
+      this.mapInstance.jumpTo({
         center: cam.center,
         zoom: cam.zoom,
         bearing: cam.bearing,
