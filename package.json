@@ -35,12 +35,12 @@
   "author": "MapConductor",
   "license": "Apache2",
   "peerDependencies": {
-    "@mapconductor/js-sdk-core": "^0.1.0",
+    "@mapconductor/js-sdk-core": "^0.1.1",
     "react": "^19.2.0"
   },
   "dependencies": {
-    "@mapconductor/js-sdk-core": "0.1.0",
-    "@mapconductor/js-sdk-react": "0.1.0",
+    "@mapconductor/js-sdk-core": "0.1.1",
+    "@mapconductor/js-sdk-react": "0.1.1",
     "maplibre-gl": "^5.11.0"
   },
   "devDependencies": {
