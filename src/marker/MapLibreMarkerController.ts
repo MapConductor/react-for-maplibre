@@ -16,7 +16,7 @@ import {
   type MarkerState,
   type RasterLayerState,
 } from '@mapconductor/js-sdk-core';
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import { MapLibreMapViewHolder } from '../MapLibreMapViewHolder';
 import { MapLibreMarkerOverlayRenderer } from './MapLibreMarkerOverlayRenderer';
 import {

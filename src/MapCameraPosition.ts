@@ -1,5 +1,5 @@
 import { createGeoPoint, createMapCameraPosition, computeOffset, type MapCameraPosition } from '@mapconductor/js-sdk-core';
-import type maplibregl from 'maplibre-gl';
+import type * as maplibregl from 'maplibre-gl';
 import { ZoomAltitudeConverter } from './zoom/ZoomAltitudeConverter';
 
 const converter = new ZoomAltitudeConverter();

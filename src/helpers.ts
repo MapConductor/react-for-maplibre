@@ -1,4 +1,4 @@
-import maplibregl from 'maplibre-gl';
+import * as maplibregl from 'maplibre-gl';
 import type { SourceSpecification } from 'maplibre-gl';
 import { createGeoPoint, TileScheme, type GeoPoint, type GroundImageState, type PolygonState, type RasterLayerSource } from '@mapconductor/js-sdk-core';
 
