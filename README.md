@@ -1,4 +1,4 @@
-English | [日本語](./README.ja.md) | [Español (Latinoamérica)](./README.es-419.md)
+English | [日本語](https://github.com/MapConductor/react-for-maplibre/README.ja.md) | [Español (Latinoamérica)](https://github.com/MapConductor/react-for-maplibre/README.es-419.md)
 
 # @mapconductor/react-for-maplibre
 
@@ -23,53 +23,192 @@ install them explicitly instead:
 npm install @mapconductor/react-for-maplibre @mapconductor/js-sdk-core @mapconductor/js-sdk-react
 ```
 
-`maplibre-gl` is bundled as a dependency; no API key is required for the
+`maplibre-gl` (v6) is bundled as a dependency; no API key is required for the
 built-in OpenStreetMap Japan styles.
 
-## Quick start
+## Bundler setup (MapLibre GL JS v6)
+
+MapLibre GL JS v6 is ESM-only and loads its Web Worker from a URL. With a
+bundler (Vite, webpack, esbuild, Rollup) that URL must be registered once,
+before the first map is created. This package re-exports maplibre's
+`setWorkerUrl` as `setMapLibreWorkerUrl` so you can do it without importing
+`maplibre-gl` directly:
+
+```ts
+// Vite
+import { setMapLibreWorkerUrl } from '@mapconductor/react-for-maplibre';
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
+
+setMapLibreWorkerUrl(workerUrl);
+```
+
+```ts
+// webpack 5+ / esbuild / Rollup (after copying the worker next to your bundle)
+import { setMapLibreWorkerUrl } from '@mapconductor/react-for-maplibre';
+
+setMapLibreWorkerUrl(new URL('maplibre-gl/dist/maplibre-gl-worker.mjs', import.meta.url).toString());
+```
+
+For SSR with Vite, add `maplibre-gl` to `ssr.noExternal` so the worker-URL
+import resolves through Vite. See the
+[v5→v6 migration guide](https://github.com/maplibre/maplibre-gl-js/blob/v6.0.0/docs/guides/v5-to-v6-migration-guide.md)
+for per-bundler details.
+
+![](https://raw.githubusercontent.com/mapconductor/react-for-maplibre/docs/images/hello-map.jpg)
+
+## Hello Map tutorial
+
+The simplest possible map app, built with MapConductor + MapLibre: click the
+marker and a "Hello, MapConductor" bubble pops up. You can build it in the 5
+steps below. It uses MapLibre, which needs no API key, so you can copy-paste and
+it just works.
+
+### Step 1: Create a React project
+
+Create a React + TypeScript project with Vite.
+
+```shell
+npm create vite@latest hello-map -- --template react-ts
+cd hello-map
+npm install
+npm run dev
+```
+
+### Step 2: Install MapConductor (MapLibre)
+
+Install the package needed to show a map. We use MapLibre here, but you can use
+other map modules too.
+
+```shell
+npm install @mapconductor/react-for-maplibre
+```
+
+- `@mapconductor/react-for-maplibre` — components / hooks for MapLibre
+- `@mapconductor/js-sdk-react` / `@mapconductor/js-sdk-core` are installed
+  automatically as dependencies.
+
+### Step 3: Show the map
+
+Create the map state with `useMapLibreViewState` and render it with
+`<MapLibreMapView>`. Don't forget the style CSS import. Give the outer element a
+height to make it full-screen.
 
 ```tsx
-import { createGeoPoint, createMapCameraPosition } from '@mapconductor/js-sdk-core';
-import { Marker } from '@mapconductor/js-sdk-react';
 import {
   MapLibreDesign,
-  MapLibreMapView2D,
+  MapLibreMapView,
   useMapLibreViewState,
 } from '@mapconductor/react-for-maplibre';
 import '@mapconductor/react-for-maplibre/style.css';
+import { createGeoPoint, createMapCameraPosition } from '@mapconductor/js-sdk-core';
 
 const TOKYO = createGeoPoint({ latitude: 35.6812, longitude: 139.7671 });
+const INITIAL_CAMERA = createMapCameraPosition({ position: TOKYO, zoom: 14 });
 
-export function App() {
-  const state = useMapLibreViewState({
-    mapDesignType: MapLibreDesign.OsmBrightJa,
-    cameraPosition: createMapCameraPosition({ position: TOKYO, zoom: 12 }),
+export default function App() {
+  const mapViewState = useMapLibreViewState({
+    mapDesignType: MapLibreDesign.OsmBright,
+    cameraPosition: INITIAL_CAMERA,
   });
 
   return (
-    <div style={{ width: '100%', height: '100vh' }}>
-      <MapLibreMapView2D
-        state={state}
-        onMapClick={point => console.log('clicked', point.latitude, point.longitude)}
-        onCameraMoveEnd={camera => console.log('zoom', camera.zoom)}
-      >
-        <Marker position={TOKYO} />
-      </MapLibreMapView2D>
+    <div style={{ width: '100vw', height: '100vh' }}>
+      <MapLibreMapView state={mapViewState} />
     </div>
   );
 }
 ```
 
-Use `MapLibreMapView` instead of `MapLibreMapView2D` for the globe projection.
+### Step 4: Place a marker
 
-## Map designs
+Create the marker state with `createMarkerState` and register it with
+`<Marker>`. Write overlays as **child elements** of the map component.
 
-`MapLibreDesign` ships style presets served by openstreetmap.jp:
-`OsmBright`, `OsmBrightEn`, `OsmBrightJa`, `MapTilerBasicEn`, `MapTilerBasicJa`,
-`MapTilerTonerEn`, `MapTilerTonerJa`, `OpenMapTiles`, and `DemoTiles`. Switch at
-runtime by assigning `state.mapDesignType = ...`.
+```tsx
+import { useMemo } from 'react';
+import { createMarkerState } from '@mapconductor/js-sdk-core';
+import { Marker } from '@mapconductor/js-sdk-react';
+
+// ...inside App...
+const marker = useMemo(
+  () => createMarkerState({ id: 'hello', position: TOKYO }),
+  [],
+);
+
+// ...inside return...
+<MapLibreMapView state={mapViewState}>
+  <Marker state={marker} />
+</MapLibreMapView>
+```
+
+### Step 5: Show an InfoBubble on click
+
+Track the selected state with `useState`, set it to true in the marker's
+`onClick`, and render `<InfoBubble>` only while selected. This is the finished
+app.
+
+```tsx
+import { useMemo, useState } from 'react';
+import {
+  MapLibreDesign,
+  MapLibreMapView,
+  useMapLibreViewState,
+} from '@mapconductor/react-for-maplibre';
+import '@mapconductor/react-for-maplibre/style.css';
+import {
+  createGeoPoint,
+  createMapCameraPosition,
+  createMarkerState,
+} from '@mapconductor/js-sdk-core';
+import { InfoBubble, Marker } from '@mapconductor/js-sdk-react';
+
+const TOKYO = createGeoPoint({ latitude: 35.6812, longitude: 139.7671 });
+const INITIAL_CAMERA = createMapCameraPosition({ position: TOKYO, zoom: 14 });
+
+export default function App() {
+  const mapViewState = useMapLibreViewState({
+    mapDesignType: MapLibreDesign.OsmBright,
+    cameraPosition: INITIAL_CAMERA,
+  });
+
+  const [selected, setSelected] = useState(false);
+
+  const marker = useMemo(
+    () => createMarkerState({
+      id: 'hello',
+      position: TOKYO,
+      onClick: () => setSelected(true),
+    }),
+    [],
+  );
+
+  return (
+    <div style={{ width: '100vw', height: '100vh' }}>
+      <MapLibreMapView state={mapViewState} onMapClick={() => setSelected(false)}>
+        <Marker state={marker} />
+        {selected && (
+          <InfoBubble marker={marker}>
+            <div style={{ padding: '8px 12px', fontWeight: 600 }}>
+              Hello, MapConductor
+            </div>
+          </InfoBubble>
+        )}
+      </MapLibreMapView>
+    </div>
+  );
+}
+```
+
+### Key points
+
+- Coordinates, cameras and markers are created with `js-sdk-core` functions
+  (**provider-independent**).
+- The map component and hooks come from `react-for-maplibre`
+  (**provider-specific**).
+- Write overlays as **child elements** of the map component.
+- Control show / hide with React `useState`.
 
 ## Related packages
 
-- [`@mapconductor/js-sdk-core`](../js-sdk-core) — geometry, camera, and state primitives
-- [`@mapconductor/js-sdk-react`](../js-sdk-react) — shared `Marker`, `Markers`, shapes, and info bubbles
+- [`@mapconductor/js-sdk-core`](https://github.com/mapconductor/js-sdk-core) — geometry, camera, and state primitives
+- [`@mapconductor/js-sdk-react`](https://github.com/mapconductor/js-sdk-react) — shared `Marker`, `Markers`, shapes, and info bubbles

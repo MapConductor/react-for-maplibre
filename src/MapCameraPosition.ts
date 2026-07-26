@@ -7,6 +7,16 @@ const NEGATIVE_TILT_TARGET_DISTANCE_SCALE = 1.83;
 const NEGATIVE_TILT_ZOOM_OFFSET_AT_MAX_TILT = -0.9;
 
 /**
+ * Quantize a programmatic zoom target to the nearest integer, mirroring how
+ * Google Maps 2D (the project-wide camera reference) snaps zoom. Keeps MapLibre
+ * aligned with Google at fractional demo zooms (Oahu 9.5 -> 10, Kiribati
+ * 4.5 -> 5) instead of rendering the true half level Google never shows.
+ */
+function snapZoomToGoogle(zoom: number): number {
+    return Math.round(zoom);
+}
+
+/**
  * Converts a MapConductor MapCameraPosition to MapLibre camera parameters.
  * Applies the zoom offset: MapLibre zoom = MapConductor zoom - 1.
  */
@@ -19,7 +29,13 @@ export function toCameraPosition(pos: MapCameraPosition): {
     if (pos.tilt >= 0) {
         return {
             center: [pos.center.longitude, pos.center.latitude],
-            zoom: ZoomAltitudeConverter.googleZoomToMaplibreZoom(pos.zoom),
+            // Google Maps 2D (the project-wide reference) snaps zoom to the
+            // nearest integer (9.5 -> 10, 4.5 -> 5); MapLibre renders the true
+            // fractional zoom, leaving the two up to half a level apart at
+            // fractional targets (e.g. Oahu 9.5). Quantize programmatic targets
+            // the way Google does. Reported zoom (toMapCameraPosition) stays
+            // fractional and faithful.
+            zoom: ZoomAltitudeConverter.googleZoomToMaplibreZoom(snapZoomToGoogle(pos.zoom)),
             bearing: pos.bearing,
             tilt: pos.tilt,
         };
