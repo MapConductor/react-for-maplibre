@@ -1,4 +1,4 @@
-[English](https://github.com/MapConductor/react-for-maplibre/README.md) | [日本語](https://github.com/MapConductor/react-for-maplibre/README.ja.md) | Español (Latinoamérica)
+[English](https://github.com/MapConductor/react-for-maplibre/blob/main/README.md) | [日本語](https://github.com/MapConductor/react-for-maplibre/blob/main/README.ja.md) | Español (Latinoamérica)
 
 # @mapconductor/react-for-maplibre
 
