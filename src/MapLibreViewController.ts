@@ -147,6 +147,18 @@ export class MapLibreViewController
         this.markerController.dispatchClick(markerEntity.state);
         return;
       }
+      // Overlays: geometric hit-tests from the click's lat/lng (NOT MapLibre
+      // layer/overlay click events), mirroring the marker path above and
+      // android. Consistent across providers. Order: polyline, polygon, circle.
+      if (this.polylineController.handleMapClick(point, this.getCameraPosition())) {
+        return;
+      }
+      if (this.polygonController.handleMapClick(point)) {
+        return;
+      }
+      if (this.circleController.handleMapClick(point)) {
+        return;
+      }
       if (this.skipNextGroundImageClick && this.groundImageController.hasClickableAt(point)) {
         this.skipNextGroundImageClick = false;
         return;

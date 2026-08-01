@@ -143,14 +143,15 @@ export class MapLibreMarkerEventController {
   private findMarkerAtPointer(
     event: PointerEvent,
   ): MarkerEntity<MapLibreActualMarker> | null {
-    const map = this.controller.renderer.holder.map;
-    if (!map.getLayer(this.controller.renderer.markerLayer.layerId)) return null;
-    const point = this.localPoint(event);
-    const features = map.queryRenderedFeatures([point.x, point.y], {
-      layers: [this.controller.renderer.markerLayer.layerId],
-    });
-    const id = features[0]?.properties?.['mc-id'];
-    return typeof id === 'string' ? this.controller.markerManager.getEntity(id) : null;
+    const holder = this.controller.renderer.holder;
+    if (!holder.map.getLayer(this.controller.renderer.markerLayer.layerId)) return null;
+    // Hit-test against the marker's icon bounds (default icon size when icon is
+    // null), the same way findWithZoom() resolves clicks — rather than a
+    // single-pixel queryRenderedFeatures, which requires landing exactly on a
+    // rendered pixel and ignores the icon size. This lets a drag start anywhere
+    // within the icon's footprint.
+    const position = holder.fromScreenOffsetSync(this.localPoint(event));
+    return this.controller.findWithZoom(position, holder.map.getZoom(), this.lastPointerType);
   }
 
   private positionFromPointer(event: PointerEvent) {

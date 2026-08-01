@@ -1,24 +1,18 @@
-import type { MapLayerMouseEvent } from 'maplibre-gl';
 import {
   createPolygonEntity,
+  type GeoPoint,
   type OnPolygonEventHandler,
   type PolygonState,
 } from '@mapconductor/js-sdk-core';
-import { lngLatFromEvent } from '../helpers';
-import { MapLibreMapViewHolder } from '../MapLibreMapViewHolder';
 import { MapLibrePolygonOverlayRenderer } from './MapLibrePolygonOverlayRenderer';
 
 export class MapLibrePolygonConductor {
   readonly polygonOverlay: MapLibrePolygonOverlayRenderer;
   clickListener: OnPolygonEventHandler | null = null;
 
-  private clickHandlerAttached = false;
   private operation = Promise.resolve();
 
-  constructor(
-    private readonly holder: MapLibreMapViewHolder,
-    polygonOverlay: MapLibrePolygonOverlayRenderer,
-  ) {
+  constructor(polygonOverlay: MapLibrePolygonOverlayRenderer) {
     this.polygonOverlay = polygonOverlay;
   }
 
@@ -69,34 +63,23 @@ export class MapLibrePolygonConductor {
 
   private async redraw(): Promise<void> {
     await this.polygonOverlay.onPostProcess();
-    this.ensureClickHandler();
   }
 
-  private ensureClickHandler(): void {
-    if (
-      this.clickHandlerAttached ||
-      !this.holder.map.getLayer(this.polygonOverlay.layer.layerId)
-    ) {
-      return;
-    }
-
-    this.holder.map.on(
-      'click',
-      this.polygonOverlay.layer.layerId,
-      this.handleClick,
-    );
-    this.clickHandlerAttached = true;
-  }
-
-  private readonly handleClick = (event: MapLayerMouseEvent): void => {
-    const clicked = lngLatFromEvent(event);
+  /**
+   * Hit-test a map click (its lat/lng) against the polygons geometrically
+   * (point-in-polygon, honouring holes and zIndex) and dispatch the click on the
+   * top-most polygon that contains the point. Does NOT use a MapLibre
+   * layer/overlay click event — detection is driven by the map click position,
+   * matching the marker/polyline paths and android. Returns true if hit.
+   */
+  handleMapClick(clicked: GeoPoint): boolean {
     const entity = this.polygonOverlay.polygonManager.find(clicked);
-    if (!entity) return;
-
+    if (!entity) return false;
     const polygonEvent = { state: entity.state, clicked };
     entity.state.onClick?.(polygonEvent);
     this.clickListener?.(polygonEvent);
-  };
+    return true;
+  }
 
   private enqueue(operation: () => Promise<void>): Promise<void> {
     const next = this.operation.then(operation);

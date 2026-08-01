@@ -1,10 +1,8 @@
-import type { MapLayerMouseEvent } from 'maplibre-gl';
 import {
   CircleController,
   type CircleState,
+  type GeoPoint,
 } from '@mapconductor/js-sdk-core';
-import { lngLatFromEvent } from '../helpers';
-import { MapLibreMapViewHolder } from '../MapLibreMapViewHolder';
 import {
   type MapLibreActualCircle,
 } from './MapLibreCircleLayer';
@@ -13,16 +11,8 @@ import { MapLibreCircleOverlayRenderer } from './MapLibreCircleOverlayRenderer';
 export class MapLibreCircleController extends CircleController<MapLibreActualCircle> {
   declare readonly renderer: MapLibreCircleOverlayRenderer;
 
-  constructor(
-    private readonly holder: MapLibreMapViewHolder,
-    renderer: MapLibreCircleOverlayRenderer,
-  ) {
+  constructor(renderer: MapLibreCircleOverlayRenderer) {
     super({ circleManager: renderer.circleManager, renderer });
-  }
-
-  override async add(data: CircleState[]): Promise<void> {
-    await super.add(data);
-    this.ensureClickHandler();
   }
 
   override async update(state: CircleState): Promise<void> {
@@ -31,9 +21,7 @@ export class MapLibreCircleController extends CircleController<MapLibreActualCir
   }
 
   async resync(): Promise<void> {
-    this.detachClickHandler();
     await this.renderer.redraw();
-    this.ensureClickHandler();
   }
 
   override async clear(): Promise<void> {
@@ -41,31 +29,16 @@ export class MapLibreCircleController extends CircleController<MapLibreActualCir
     await this.renderer.redraw();
   }
 
-  override destroy(): void {
-    this.detachClickHandler();
-    super.destroy();
-  }
-
-  private clickHandlerAttached = false;
-
-  private ensureClickHandler(): void {
-    if (this.clickHandlerAttached || !this.holder.map.getLayer(this.renderer.layer.layerId)) {
-      return;
-    }
-    this.holder.map.on('click', this.renderer.layer.layerId, this.handleClick);
-    this.clickHandlerAttached = true;
-  }
-
-  private detachClickHandler(): void {
-    if (!this.clickHandlerAttached) return;
-    this.holder.map.off('click', this.renderer.layer.layerId, this.handleClick);
-    this.clickHandlerAttached = false;
-  }
-
-  private readonly handleClick = (event: MapLayerMouseEvent): void => {
-    const clicked = lngLatFromEvent(event);
+  /**
+   * Hit-test a map click (its lat/lng) against the circles geometrically (inside
+   * the fill radius) and dispatch the click on the matching circle. Does NOT use
+   * a MapLibre layer/overlay click event — detection is driven by the map click
+   * position, matching the marker/polyline paths and android. Returns true if hit.
+   */
+  handleMapClick(clicked: GeoPoint): boolean {
     const entity = this.find(clicked);
-    if (!entity) return;
+    if (!entity) return false;
     this.dispatchClick({ state: entity.state, clicked });
-  };
+    return true;
+  }
 }

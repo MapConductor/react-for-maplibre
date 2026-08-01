@@ -188,7 +188,7 @@ function getCircleController(
   const circleManager = new CircleManager<MapLibreActualCircle>();
   const layer = new MapLibreCircleLayer({ holder, canEditStyle });
   const renderer = new MapLibreCircleOverlayRenderer({ layer, circleManager, holder });
-  return new MapLibreCircleController(holder, renderer);
+  return new MapLibreCircleController(renderer);
 }
 
 function getPolylineController(
@@ -198,7 +198,7 @@ function getPolylineController(
   const polylineManager = new PolylineManager<MapLibreActualPolyline>();
   const layer = new MapLibrePolylineLayer({ holder, canEditStyle });
   const renderer = new MapLibrePolylineOverlayRenderer({ layer, polylineManager, holder });
-  return new MapLibrePolylineController(holder, renderer);
+  return new MapLibrePolylineController(renderer);
 }
 
 function getPolygonController(
@@ -208,7 +208,7 @@ function getPolygonController(
   const polygonManager = new PolygonManager<MapLibreActualPolygon>();
   const layer = new MapLibrePolygonLayer({ holder, canEditStyle });
   const renderer = new MapLibrePolygonOverlayRenderer({ layer, polygonManager, holder });
-  return new MapLibrePolygonConductor(holder, renderer);
+  return new MapLibrePolygonConductor(renderer);
 }
 
 function getGroundImageController(

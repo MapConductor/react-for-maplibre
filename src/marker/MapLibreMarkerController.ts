@@ -269,32 +269,57 @@ export class MapLibreMarkerController extends AbstractMarkerController<MapLibreA
     zoom: number,
     pointerType: 'touch' | 'mouse',
   ): MarkerEntity<MapLibreActualMarker> | null {
-    const nearest = this.markerManager.findNearest(position);
-    if (!nearest) return null;
+    // Defers to MapLibre's own rendered-geometry query (`queryRenderedFeatures`),
+    // which returns the icons actually painted under the point in render order —
+    // topmost first. That respects the real stacking order AND the true on-screen
+    // icon size/placement, so it stays correct under tilt, rotation and icon
+    // scaling (a hand-rolled geo/pixel-box test does not: the icon's native bitmap
+    // size and tilt projection make it match far-off markers). A `tapTolerance`
+    // box is queried as a fallback for near-misses on small icons. Falls back to
+    // the tiled-marker (raster) radius hit-test when nothing regular is hit.
+    const map = this.holder.map;
+    const layerId = this.renderer.markerLayer.layerId;
+    if (map.getLayer(layerId)) {
+      const clickScreen = this.holder.toScreenOffset(position);
+      // MapLibre returns matching symbols topmost-first, so the first regular
+      // marker in the list is the one drawn on top of the stack.
+      const topMost = (features: Array<{ properties?: Record<string, unknown> | null }>) => {
+        for (const feature of features) {
+          const id = feature.properties?.['mc-id'];
+          if (typeof id !== 'string') continue;
+          const entity = this.markerManager.getEntity(id);
+          if (entity && entity.marker !== null) return entity;
+        }
+        return null;
+      };
+      let hit = topMost(
+        map.queryRenderedFeatures([clickScreen.x, clickScreen.y] as unknown as [number, number], {
+          layers: [layerId],
+        }),
+      );
+      if (!hit) {
+        const t = Settings.Default.tapTolerance;
+        hit = topMost(
+          map.queryRenderedFeatures(
+            [
+              [clickScreen.x - t, clickScreen.y - t],
+              [clickScreen.x + t, clickScreen.y + t],
+            ] as unknown as [[number, number], [number, number]],
+            { layers: [layerId] },
+          ),
+        );
+      }
+      if (hit) return hit;
+    }
 
-    if (nearest.marker === null) {
-      // Tiled marker: geographic radius hit-test (matches MarkerTileRenderer.findNearest)
+    const nearest = this.markerManager.findNearest(position);
+    if (nearest?.marker === null) {
       const hitRadius =
         pointerType === 'touch' ? MARKER_HIT_RADIUS_TOUCH_PX : MARKER_HIT_RADIUS_MOUSE_PX;
       const found = this.tileRenderer?.findNearest(position, hitRadius, zoom);
-      if (!found) return null;
-      // Return the MarkerEntity matching the found state
-      return this.markerManager.getEntity(found.id) ?? null;
+      return found ? (this.markerManager.getEntity(found.id) ?? null) : null;
     }
-
-    // Regular marker: icon-bounds check (existing behaviour)
-    const touchScreen = this.holder.toScreenOffset(position);
-    const markerScreen = this.holder.toScreenOffset(nearest.state.position);
-    const bitmapIcon = nearest.state.icon?.toBitmapIcon() ?? createDefaultIcon().toBitmapIcon();
-    const tolerance = Settings.Default.tapTolerance;
-    const dx = touchScreen.x - markerScreen.x;
-    const dy = touchScreen.y - markerScreen.y;
-    const left = -bitmapIcon.anchor.x * bitmapIcon.size.width - tolerance;
-    const right = (1 - bitmapIcon.anchor.x) * bitmapIcon.size.width + tolerance;
-    const top = -bitmapIcon.anchor.y * bitmapIcon.size.height - tolerance;
-    const bottom = (1 - bitmapIcon.anchor.y) * bitmapIcon.size.height + tolerance;
-
-    return dx >= left && dx <= right && dy >= top && dy <= bottom ? nearest : null;
+    return null;
   }
 
   // ── other existing methods ────────────────────────────────────────────────

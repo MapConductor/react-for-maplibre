@@ -1,8 +1,6 @@
 import {
   AbstractPolygonOverlayRenderer,
-  createInterpolatePoints,
-  createLinearInterpolatePoints,
-  splitByMeridian,
+  buildUnwrappedPolygonRings,
   type GeoPoint,
   type PolygonEntity,
   type PolygonManagerInterface,
@@ -61,43 +59,43 @@ export class MapLibrePolygonOverlayRenderer extends AbstractPolygonOverlayRender
 }
 
 function createMapLibrePolygon(state: PolygonState): MapLibreActualPolygon {
-  const outerPoints = interpolateAndNormalize(state.points, state.geodesic);
-  const outerRings = splitByMeridian(outerPoints, state.geodesic);
-  const includeHoles = state.holes.length > 0 && outerRings.length === 1;
-  const holes = includeHoles
-    ? state.holes
-        .map((hole) => closeCoordinates(interpolateAndNormalize(hole, state.geodesic)))
-        .filter((hole) => hole.length >= 4)
-    : [];
+  // Unwrapped rings (longitudes continuous, may exceed ±180): MapLibre GL renders
+  // them seamlessly across the antimeridian, so the outer ring is never split
+  // and ALL holes can always be included.
+  const { outerRings, holeRings } = buildUnwrappedPolygonRings(
+    state.points,
+    state.holes,
+    state.geodesic,
+  );
+  if (outerRings.length === 0) return { fillFeatures: [], outlineFeatures: [] };
 
-  const fillFeatures: PolygonFeature[] = outerRings
-    .map((ring): PolygonFeature | null => {
-      const outer = closeCoordinates(ring);
-      if (outer.length < 4) return null;
-      return {
-        type: 'Feature',
-        geometry: {
-          type: 'Polygon',
-          coordinates: [outer, ...holes],
-        },
-        properties: {
-          id: state.id,
-          [MapLibrePolygonLayer.Prop.FILL_COLOR]: state.fillColor,
-          [MapLibrePolygonLayer.Prop.Z_INDEX]: state.zIndex,
-        },
-      };
-    })
-    .filter((feature): feature is PolygonFeature => feature != null);
+  const outer = closeCoordinates(outerRings[0]);
+  if (outer.length < 4) return { fillFeatures: [], outlineFeatures: [] };
+  const holes = holeRings
+    .map((hole) => closeCoordinates(hole))
+    .filter((hole) => hole.length >= 4);
 
-  const closedOutline = closePoints(state.points);
-  const outlinePoints = interpolateAndNormalize(closedOutline, state.geodesic);
-  const outlineFeatures: LineFeature[] = splitByMeridian(outlinePoints, state.geodesic)
-    .filter((line) => line.length >= 2)
-    .map((line): LineFeature => ({
+  const fillFeatures: PolygonFeature[] = [
+    {
+      type: 'Feature',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [outer, ...holes],
+      },
+      properties: {
+        id: state.id,
+        [MapLibrePolygonLayer.Prop.FILL_COLOR]: state.fillColor,
+        [MapLibrePolygonLayer.Prop.Z_INDEX]: state.zIndex,
+      },
+    },
+  ];
+
+  const outlineFeatures: LineFeature[] = [
+    {
       type: 'Feature',
       geometry: {
         type: 'LineString',
-        coordinates: line.map(toCoordinate),
+        coordinates: outer,
       },
       properties: {
         id: `outline-${state.id}`,
@@ -105,22 +103,10 @@ function createMapLibrePolygon(state: PolygonState): MapLibreActualPolygon {
         [MapLibrePolygonLayer.Prop.STROKE_WIDTH]: state.strokeWidth,
         [MapLibrePolygonLayer.Prop.Z_INDEX]: state.zIndex,
       },
-    }));
+    },
+  ];
 
   return { fillFeatures, outlineFeatures };
-}
-
-function interpolateAndNormalize(points: GeoPoint[], geodesic: boolean): GeoPoint[] {
-  if (points.length === 0) return [];
-  const interpolated = geodesic
-    ? createInterpolatePoints(points)
-    : createLinearInterpolatePoints(points);
-  return interpolated.map((point) => point.normalize());
-}
-
-function closePoints(points: GeoPoint[]): GeoPoint[] {
-  if (points.length === 0 || samePoint(points[0], points[points.length - 1])) return points;
-  return [...points, points[0]];
 }
 
 function closeCoordinates(points: GeoPoint[]): Coordinate[] {
@@ -134,10 +120,6 @@ function closeCoordinates(points: GeoPoint[]): Coordinate[] {
 
 function toCoordinate(point: GeoPoint): Coordinate {
   return [point.longitude, point.latitude];
-}
-
-function samePoint(a: GeoPoint, b: GeoPoint): boolean {
-  return a.latitude === b.latitude && a.longitude === b.longitude;
 }
 
 function sameCoordinate(a: Coordinate, b: Coordinate): boolean {

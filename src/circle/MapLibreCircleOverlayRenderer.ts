@@ -1,5 +1,7 @@
 import {
   AbstractCircleOverlayRenderer,
+  circleToRing,
+  closeRing,
   type CircleEntity,
   type CircleManagerInterface,
   type CircleState,
@@ -58,23 +60,23 @@ export class MapLibreCircleOverlayRenderer extends AbstractCircleOverlayRenderer
   }
 }
 
-function createMapLibreCircle(state: CircleState): MapLibreActualCircle {
-  const latitudeCorrection = state.geodesic
-    ? Math.cos(state.center.latitude * Math.PI / 180)
-    : 1;
+function createMapLibreCircle(state: CircleState): MapLibreActualCircle | null {
+  // Ground-anchored circle polygon from the shared core geometry. The ring is
+  // unwrapped (longitudes may exceed ±180), which MapLibre GL renders seamlessly
+  // across the antimeridian without splitting.
+  const ring = closeRing(circleToRing(state.center, state.radiusMeters, state.geodesic));
+  if (ring.length < 4) return null;
   const zIndex = state.zIndex ?? calculateZIndex(state.center.latitude, state.center.longitude);
 
   return {
     type: 'Feature',
     id: `circle-${state.id}`,
     geometry: {
-      type: 'Point',
-      coordinates: [state.center.longitude, state.center.latitude],
+      type: 'Polygon',
+      coordinates: [ring.map((point) => [point.longitude, point.latitude])],
     },
     properties: {
       id: `circle-${state.id}`,
-      [MapLibreCircleLayer.Prop.LATITUDE_CORRECTION]: latitudeCorrection,
-      [MapLibreCircleLayer.Prop.RADIUS]: state.radiusMeters,
       [MapLibreCircleLayer.Prop.FILL_COLOR]: state.fillColor,
       [MapLibreCircleLayer.Prop.STROKE_COLOR]: state.strokeColor,
       [MapLibreCircleLayer.Prop.STROKE_WIDTH]: state.strokeWidth,

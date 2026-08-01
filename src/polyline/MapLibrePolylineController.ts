@@ -1,10 +1,8 @@
-import type { MapLayerMouseEvent } from 'maplibre-gl';
 import {
   PolylineController,
-  type PolylineState,
+  type GeoPoint,
+  type MapCameraPosition,
 } from '@mapconductor/js-sdk-core';
-import { lngLatFromEvent } from '../helpers';
-import { MapLibreMapViewHolder } from '../MapLibreMapViewHolder';
 import {
   type MapLibreActualPolyline,
 } from './MapLibrePolylineLayer';
@@ -13,22 +11,12 @@ import { MapLibrePolylineOverlayRenderer } from './MapLibrePolylineOverlayRender
 export class MapLibrePolylineController extends PolylineController<MapLibreActualPolyline> {
   declare readonly renderer: MapLibrePolylineOverlayRenderer;
 
-  constructor(
-    private readonly holder: MapLibreMapViewHolder,
-    renderer: MapLibrePolylineOverlayRenderer,
-  ) {
+  constructor(renderer: MapLibrePolylineOverlayRenderer) {
     super({ polylineManager: renderer.polylineManager, renderer });
   }
 
-  override async add(data: PolylineState[]): Promise<void> {
-    await super.add(data);
-    this.ensureClickHandler();
-  }
-
   async resync(): Promise<void> {
-    this.detachClickHandler();
     await this.renderer.redraw();
-    this.ensureClickHandler();
   }
 
   override async clear(): Promise<void> {
@@ -36,37 +24,24 @@ export class MapLibrePolylineController extends PolylineController<MapLibreActua
     await this.renderer.redraw();
   }
 
-  override destroy(): void {
-    this.detachClickHandler();
-    super.destroy();
-  }
-
-  private clickHandlerAttached = false;
-
-  private ensureClickHandler(): void {
-    if (this.clickHandlerAttached || !this.holder.map.getLayer(this.renderer.layer.layerId)) {
-      return;
-    }
-    this.holder.map.on('click', this.renderer.layer.layerId, this.handleClick);
-    this.clickHandlerAttached = true;
-  }
-
-  private detachClickHandler(): void {
-    if (!this.clickHandlerAttached) return;
-    this.holder.map.off('click', this.renderer.layer.layerId, this.handleClick);
-    this.clickHandlerAttached = false;
-  }
-
-  private readonly handleClick = (event: MapLayerMouseEvent): void => {
-    const clicked = lngLatFromEvent(event);
-    const camera = this.holder.getController()?.getCameraPosition();
+  /**
+   * Hit-test a map click (its lat/lng) against the polylines geometrically and,
+   * if the click lands within the tap tolerance of a line, dispatch the click on
+   * the nearest polyline (with the closest point on that line as `clicked`).
+   *
+   * This intentionally does NOT use a MapLibre layer/overlay click event. Like
+   * android (`TomTomMapViewController.onPolylineClickedInternal`) and the marker
+   * path, the hit is derived from the map click position, so behaviour matches
+   * across providers. Returns true if a polyline was hit (so the caller can
+   * suppress the generic map click).
+   */
+  handleMapClick(clicked: GeoPoint, camera: MapCameraPosition | null): boolean {
+    // findWithClosestPoint uses the current camera (zoom + visible region) for
+    // its pixel-space tap tolerance, so refresh it from the click's camera.
     if (camera) void this.onCameraChanged(camera);
-
     const hit = this.findWithClosestPoint(clicked);
-    if (!hit) return;
-    this.dispatchClick({
-      state: hit.entity.state,
-      clicked: hit.closestPoint,
-    });
-  };
+    if (!hit) return false;
+    this.dispatchClick({ state: hit.entity.state, clicked: hit.closestPoint });
+    return true;
+  }
 }
