@@ -163,10 +163,7 @@ export class MapLibreMarkerController extends AbstractMarkerController<MapLibreA
     const server = LocalTileServer.startServer();
 
     const { iconScaleCallback } = this.tilingOptions;
-    const tileRenderer = new MarkerTileRenderer<MarkerState>(tiledStates, {
-      tileSize: 256,
-      iconScaleCallback: iconScaleCallback ?? undefined,
-    });
+    const tileRenderer = new MarkerTileRenderer<MarkerState>(tiledStates, 256, iconScaleCallback ?? undefined);
     this.tileRenderer = tileRenderer;
     this.tileVersion++;
     server.register(this.tileRouteId, tileRenderer);
@@ -308,6 +305,30 @@ export class MapLibreMarkerController extends AbstractMarkerController<MapLibreA
             { layers: [layerId] },
           ),
         );
+      }
+      if (!hit) {
+        // アイコン画像サイズを考慮したフォールバック。最近傍の通常マーカーを投影し、
+        // クリックがそのアイコン画像の矩形（size + anchor + 入力別 tolerance）内なら採用する。
+        // queryRenderedFeatures / 固定 tapTolerance box では取りこぼす、大きなアイコン
+        //（幅広ラベルや大きな画像）でも画像全体でヒットさせる（android の find と同じ判定）。
+        const nearest = this.markerManager.findNearest(position);
+        if (nearest && nearest.marker !== null) {
+          const bmp = (nearest.state.icon ?? createDefaultIcon()).toBitmapIcon();
+          const markerScreen = this.holder.toScreenOffset(nearest.state.position);
+          if (markerScreen) {
+            const tol =
+              pointerType === 'touch' ? MARKER_HIT_RADIUS_TOUCH_PX : MARKER_HIT_RADIUS_MOUSE_PX;
+            const dx = clickScreen.x - markerScreen.x;
+            const dy = clickScreen.y - markerScreen.y;
+            const left = -bmp.anchor.x * bmp.size.width - tol;
+            const right = (1 - bmp.anchor.x) * bmp.size.width + tol;
+            const top = -bmp.anchor.y * bmp.size.height - tol;
+            const bottom = (1 - bmp.anchor.y) * bmp.size.height + tol;
+            if (dx >= left && dx <= right && dy >= top && dy <= bottom) {
+              hit = nearest;
+            }
+          }
+        }
       }
       if (hit) return hit;
     }

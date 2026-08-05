@@ -56,7 +56,16 @@ export class MapLibreGroundImageOverlayRenderer extends AbstractGroundImageOverl
           id: layerId,
           type: 'raster',
           source: sourceId,
-          paint: { 'raster-opacity': state.opacity },
+          paint: {
+            'raster-opacity': state.opacity,
+            // Disable the raster cross-fade (mapbox-gl default 300ms). Dragging a
+            // corner marker calls source.setCoordinates every frame, which
+            // re-creates the image source's raster tile; the fade then ghosts the
+            // old position over the new one, so the ground image visibly flickers.
+            // maplibre-gl doesn't fade image-source repositions (no flicker there),
+            // but the two renderers are kept identical, so this is set on both.
+            'raster-fade-duration': 0,
+          },
         } as LayerSpecification);
       }
       bringMarkerLayersToFront(this.holder.map);

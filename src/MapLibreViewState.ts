@@ -5,6 +5,7 @@ import {
   type GeoPoint,
   type MapCameraPosition,
   type MapViewControllerInterface,
+  type GeoRectBounds,
   type MapViewHolder,
   MapCameraPosition as MapCameraPositionNS,
   createRandomId,
@@ -76,6 +77,10 @@ export class MapLibreViewState
 
   override getMapViewHolder(): MapViewHolder<unknown, unknown> | null {
     return this._controller?.holder ?? null;
+  }
+
+  override fitBounds(bounds: GeoRectBounds, padding: number = 0): void {
+    void this._controller?.fitBounds(bounds, { padding });
   }
 
   // Called by MapLibreView when controller is initialized

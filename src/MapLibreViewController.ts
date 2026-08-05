@@ -26,6 +26,9 @@ import {
   type RasterLayerCapable,
   type RasterLayerState,
   type VisibleRegion,
+  type MapUISettings,
+  type GlGestureHandlers,
+  applyGlMapUISettings,
 } from '@mapconductor/js-sdk-core';
 import { lngLatFromEvent } from './helpers';
 import { toCameraPosition, toMapCameraPosition } from './MapCameraPosition';
@@ -103,6 +106,10 @@ export class MapLibreViewController
 
   getMap(): maplibregl.Map {
     return this.mapInstance;
+  }
+
+  applyUISettings(settings: MapUISettings): void {
+    applyGlMapUISettings(this.mapInstance as unknown as Partial<GlGestureHandlers>, settings, 'MapLibre');
   }
 
   private setupEventListeners(): void {
@@ -200,7 +207,7 @@ export class MapLibreViewController
       void this.polylineController.resync();
       this.polygonController.resync();
       this.groundImageController.resync();
-      this.rasterLayerController.resync();
+      void this.rasterLayerController.resync();
     };
 
     this.mapInstance.on('styledata', () => {
@@ -275,7 +282,16 @@ export class MapLibreViewController
           [bounds.southWest!.longitude, bounds.southWest!.latitude],
           [bounds.northEast!.longitude, bounds.northEast!.latitude],
         ],
-        { ...(fitPadding != null ? { padding: fitPadding } : {}), duration: options?.duration },
+        {
+          ...(fitPadding != null ? { padding: fitPadding } : {}),
+          // Preserve current rotation/tilt so the fit is correct at any bearing/pitch
+          // (maplibre-gl resets bearing to 0 when omitted).
+          bearing: this.mapInstance.getBearing(),
+          pitch: this.mapInstance.getPitch(),
+          // Only pass duration when provided: maplibre-gl v6 treats an explicit
+          // `duration: undefined` as a no-op fit (the camera never moves).
+          ...(options?.duration != null ? { duration: options.duration } : {}),
+        },
       );
     });
   }
@@ -438,11 +454,11 @@ export class MapLibreViewController
   // --- RasterLayer ---
 
   async compositionRasterLayers(data: RasterLayerState[]): Promise<void> {
-    this.rasterLayerController.composition(data);
+    await this.rasterLayerController.composition(data);
   }
 
   async updateRasterLayer(state: RasterLayerState): Promise<void> {
-    this.rasterLayerController.update(state);
+    await this.rasterLayerController.update(state);
   }
 
   hasRasterLayer(state: RasterLayerState): boolean {
@@ -457,7 +473,7 @@ export class MapLibreViewController
     await this.polylineController.clear();
     await this.polygonController.clear();
     this.groundImageController.clear();
-    this.rasterLayerController.clear();
+    await this.rasterLayerController.clear();
   }
 
   destroy(): void {
