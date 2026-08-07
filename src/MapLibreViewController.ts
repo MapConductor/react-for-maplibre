@@ -1,7 +1,6 @@
 import * as maplibregl from 'maplibre-gl';
 import {
   BaseMapViewController,
-  createGeoRectBounds,
   type CameraRestriction,
   type CircleCapable,
   type CircleState,
@@ -25,15 +24,12 @@ import {
   type PolylineState,
   type RasterLayerCapable,
   type RasterLayerState,
-  type VisibleRegion,
   type MapUISettings,
   type GlGestureHandlers,
   applyGlMapUISettings,
   isEmptyCameraRestriction,
 } from '@mapconductor/js-sdk-core';
-import { lngLatFromEvent } from './helpers';
 import { ZoomAltitudeConverter } from './zoom/ZoomAltitudeConverter';
-import { toCameraPosition, toMapCameraPosition } from './MapCameraPosition';
 import { MapLibreMapViewHolder } from './MapLibreMapViewHolder';
 import { MapLibreMarkerController } from './marker/MapLibreMarkerController';
 import { MapLibreMarkerEventController } from './marker/MapLibreMarkerEventController';
@@ -42,6 +38,13 @@ import { MapLibrePolylineController } from './polyline/MapLibrePolylineControlle
 import { MapLibrePolygonConductor } from './polygon/MapLibrePolygonConductor';
 import { MapLibreGroundImageController } from './groundimage/MapLibreGroundImageController';
 import { MapLibreRasterLayerController } from './raster/MapLibreRasterLayerController';
+import { installMapEventListeners } from './MapLibreViewControllerEvents';
+import {
+  easeToPosition,
+  fitMapBounds,
+  jumpToPosition,
+  readCameraPosition,
+} from './MapLibreViewControllerCamera';
 
 export class MapLibreViewController
   extends BaseMapViewController
@@ -62,8 +65,6 @@ export class MapLibreViewController
   readonly holder: MapLibreMapViewHolder;
   private readonly markerController: MapLibreMarkerController;
   private readonly markerEventController: MapLibreMarkerEventController;
-  private groundImagePointerDown: { point: ReturnType<typeof lngLatFromEvent>; screen: { x: number; y: number } } | null = null;
-  private skipNextGroundImageClick = false;
   private readonly circleController: MapLibreCircleController;
   private readonly polylineController: MapLibrePolylineController;
   private readonly polygonController: MapLibrePolygonConductor;
@@ -124,127 +125,27 @@ export class MapLibreViewController
   }
 
   private setupEventListeners(): void {
-    this.mapInstance.on('movestart', () => {
-      const camera = this.getCameraPosition();
-      if (camera) this.notifyCameraMoveStart(camera);
+    installMapEventListeners({
+      map: this.mapInstance,
+      styleReadyRef: this.styleReadyRef,
+      markerController: this.markerController,
+      markerEventController: this.markerEventController,
+      circleController: this.circleController,
+      polylineController: this.polylineController,
+      polygonController: this.polygonController,
+      groundImageController: this.groundImageController,
+      rasterLayerController: this.rasterLayerController,
+      getCameraPosition: () => this.getCameraPosition(),
+      markInitialized: () => {
+        this.initialized = true;
+      },
+      onMapInitialized: () => this.notifyMapInitialized(),
+      onMapClick: (point) => this.notifyMapClick(point),
+      onMapLongClick: (point) => this.notifyMapLongClick(point),
+      onCameraMoveStart: (camera) => this.notifyCameraMoveStart(camera),
+      onCameraMove: (camera) => this.notifyCameraMove(camera),
+      onCameraMoveEnd: (camera) => this.notifyCameraMoveEnd(camera),
     });
-
-    const preventGroundImageDrag = (e: { lngLat: { lat: number; lng: number }; point: { x: number; y: number }; preventDefault: () => void }) => {
-      const point = lngLatFromEvent(e);
-      if (this.groundImageController.hasClickableAt(point)) {
-        e.preventDefault();
-        this.groundImagePointerDown = { point, screen: e.point };
-      }
-    };
-    const dispatchGroundImagePointerUp = (e: { point: { x: number; y: number } }) => {
-      const down = this.groundImagePointerDown;
-      this.groundImagePointerDown = null;
-      if (!down) return;
-
-      const dx = e.point.x - down.screen.x;
-      const dy = e.point.y - down.screen.y;
-      if (Math.hypot(dx, dy) > 8) return;
-      if (this.groundImageController.dispatchClick(down.point)) {
-        this.skipNextGroundImageClick = true;
-      }
-    };
-    this.mapInstance.on('mousedown', preventGroundImageDrag);
-    this.mapInstance.on('touchstart', preventGroundImageDrag);
-    this.mapInstance.on('mouseup', dispatchGroundImagePointerUp);
-    this.mapInstance.on('touchend', dispatchGroundImagePointerUp);
-
-    this.mapInstance.on('click', (e) => {
-      const point = lngLatFromEvent(e);
-      // Check markers first (handles both regular and tiled markers), mirroring Android's onMapClick.
-      const markerEntity = this.markerController.findWithZoom(
-        point,
-        this.mapInstance.getZoom(),
-        this.markerEventController.lastPointerType,
-      );
-      if (markerEntity?.state.clickable) {
-        this.markerController.dispatchClick(markerEntity.state);
-        return;
-      }
-      // Overlays: geometric hit-tests from the click's lat/lng (NOT MapLibre
-      // layer/overlay click events), mirroring the marker path above and
-      // android. Consistent across providers. Order: polyline, polygon, circle.
-      if (this.polylineController.handleMapClick(point, this.getCameraPosition())) {
-        return;
-      }
-      if (this.polygonController.handleMapClick(point)) {
-        return;
-      }
-      if (this.circleController.handleMapClick(point)) {
-        return;
-      }
-      if (this.skipNextGroundImageClick && this.groundImageController.hasClickableAt(point)) {
-        this.skipNextGroundImageClick = false;
-        return;
-      }
-      this.skipNextGroundImageClick = false;
-      if (this.groundImageController.dispatchClick(point)) {
-        return;
-      }
-      this.notifyMapClick(point);
-    });
-
-    this.mapInstance.on('contextmenu', (e) => {
-      this.notifyMapLongClick(lngLatFromEvent(e));
-    });
-
-    this.mapInstance.on('move', () => {
-      const camera = this.getCameraPosition();
-      if (camera) this.notifyCameraMove(camera);
-    });
-
-    this.mapInstance.on('moveend', () => {
-      const camera = this.getCameraPosition();
-      if (camera) this.notifyCameraMoveEnd(camera);
-    });
-
-    this.mapInstance.on('load', () => {
-      this.styleReadyRef.current = true;
-      this.initialized = true;
-      this.notifyMapInitialized();
-    });
-
-    this.mapInstance.on('error', (e) => {
-      console.error('[MapConductor] MapLibre error:', e.error);
-    });
-
-    const resyncAll = () => {
-      void this.markerController.resync().then(() => this.markerEventController.resync());
-      void this.circleController.resync();
-      void this.polylineController.resync();
-      this.polygonController.resync();
-      this.groundImageController.resync();
-      void this.rasterLayerController.resync();
-    };
-
-    this.mapInstance.on('styledata', () => {
-      const loaded = this.mapInstance.isStyleLoaded() === true;
-      if (loaded && !this.styleReadyRef.current) {
-        this.styleReadyRef.current = true;
-        resyncAll();
-      } else if (!loaded) {
-        this.styleReadyRef.current = false;
-      }
-    });
-
-    // Fallback: styledata can fire with isStyleLoaded()=false as the last event
-    // (e.g. after setProjection), leaving styleReady stuck at false even though
-    // the style is actually loaded.  The idle event fires once the map is stable,
-    // guaranteeing isStyleLoaded()=true, so use it to recover.
-    this.mapInstance.on('idle', () => {
-      if (!this.styleReadyRef.current && this.mapInstance.isStyleLoaded()) {
-        this.styleReadyRef.current = true;
-        resyncAll();
-      }
-    });
-
-    if (this.mapInstance.isStyleLoaded()) {
-      this.styleReadyRef.current = true;
-    }
   }
 
   override setMapInitializedListener(listener: OnMapInitializedHandler | null): void {
@@ -254,99 +155,21 @@ export class MapLibreViewController
 
   moveCamera(position: MapCameraPosition): Promise<boolean> {
     this.logicalTiltHint = position.tilt;
-    const cam = toCameraPosition(position);
-    return new Promise((resolve) => {
-      this.mapInstance.once('moveend', () => resolve(true));
-      // jumpTo (not flyTo) so duration = 0 moves the camera instantly with no animation.
-      this.mapInstance.jumpTo({
-        center: cam.center,
-        zoom: cam.zoom,
-        bearing: cam.bearing,
-        pitch: cam.tilt,
-      });
-    });
+    return jumpToPosition(this.mapInstance, position);
   }
 
   animateCamera(position: MapCameraPosition, durationMillis: number): Promise<boolean> {
     this.logicalTiltHint = position.tilt;
-    const cam = toCameraPosition(position);
-    return new Promise((resolve) => {
-      this.mapInstance.once('moveend', () => resolve(true));
-      this.mapInstance.easeTo({
-        center: cam.center,
-        zoom: cam.zoom,
-        bearing: cam.bearing,
-        pitch: cam.tilt,
-        duration: durationMillis || 500,
-      });
-    });
+    return easeToPosition(this.mapInstance, position, durationMillis);
   }
 
   fitBounds(bounds: GeoRectBounds, padding: number): Promise<boolean> {
-    return new Promise((resolve) => {
-      this.mapInstance.once('moveend', () => resolve(true));
-      const fitPadding = padding;
-      this.mapInstance.fitBounds(
-        [
-          [bounds.southWest!.longitude, bounds.southWest!.latitude],
-          [bounds.northEast!.longitude, bounds.northEast!.latitude],
-        ],
-        {
-          ...(fitPadding != null ? { padding: fitPadding } : {}),
-          // Preserve current rotation/tilt so the fit is correct at any bearing/pitch
-          // (maplibre-gl resets bearing to 0 when omitted).
-          bearing: this.mapInstance.getBearing(),
-          pitch: this.mapInstance.getPitch(),
-        },
-      );
-    });
+    return fitMapBounds(this.mapInstance, bounds, padding);
   }
 
   getCameraPosition(): MapCameraPosition | null {
-    const camera = toMapCameraPosition({
-      center: this.mapInstance.getCenter(),
-      zoom: this.mapInstance.getZoom(),
-      bearing: this.mapInstance.getBearing(),
-      tilt: this.mapInstance.getPitch(),
-      logicalTiltHint: this.logicalTiltHint,
-    });
-    if (!camera) return camera;
-    const visibleRegion = this.getVisibleRegion();
-    if (!visibleRegion) return camera;
-    // Matches Android: the visible region rides on cameraPosition so that
-    // mapViewState.cameraPosition.visibleRegion works without the controller.
-    return camera.copy({ visibleRegion });
+    return readCameraPosition(this.mapInstance, this.holder, this.logicalTiltHint);
   }
-
-
-  /**
-   * Projects the four screen corners of the map viewport back to geo
-   * coordinates via `fromScreenOffsetSync` and extends a bounds from them,
-   * instead of using `map.getBounds()`'s axis-aligned box — this stays
-   * correct when the map is rotated. Mirrors Android's
-   * `MapLibreViewControllerImpl.getMapCameraPosition()`.
-   */
-  private getVisibleRegion(): VisibleRegion | null {
-    const canvas = this.mapInstance.getCanvas();
-    const width = canvas.clientWidth;
-    const height = canvas.clientHeight;
-    if (!width || !height) return null;
-
-    const nearLeft = this.holder.fromScreenOffsetSync({ x: 0, y: height });
-    const nearRight = this.holder.fromScreenOffsetSync({ x: width, y: height });
-    const farLeft = this.holder.fromScreenOffsetSync({ x: 0, y: 0 });
-    const farRight = this.holder.fromScreenOffsetSync({ x: width, y: 0 });
-
-    const bounds = createGeoRectBounds();
-    bounds.extend(nearLeft);
-    bounds.extend(nearRight);
-    bounds.extend(farLeft);
-    bounds.extend(farRight);
-
-    return { bounds, nearLeft, nearRight, farLeft, farRight };
-  }
-
-  // --- Marker ---
 
   async compositionMarkers(data: MarkerState[]): Promise<void> {
     await this.markerController.composition(data);
