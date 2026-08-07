@@ -8,6 +8,7 @@ import {
   MarkerAnimationLayer,
   MapAttributionOverlay,
   type InfoBubbleEntry,
+  createMapContextValue,
 } from '@mapconductor/js-sdk-react';
 import {
   useCameraRestriction,
@@ -18,11 +19,13 @@ import {
   MapViewBaseProps,
   OverlayCollector,
   MarkerTilingOptions,
+  MapProjection,
   type GeoRectBounds,
   type MapCameraPosition,
   type GeoPoint,
   type MarkerAnimationOverlayEntry,
   type MapViewControllerInterface,
+  mapViewStateInternal,
 } from '@mapconductor/js-sdk-core';
 import { MapLibreProvider, MapLibreConfig } from './MapLibreProvider';
 import type { MapLibreViewStateInterface } from './MapLibreViewState';
@@ -39,10 +42,16 @@ export interface MapLibreMapViewProps extends MapViewBaseProps<MapLibreViewState
   onError?: (error: Error) => void;
   children?: React.ReactNode;
   markerTilingOptions?: MarkerTilingOptions;
+  /**
+   * 投影法。省略時は 3D 版が Globe、2D 版が Mercator。
+   * android-sdk / ios-sdk の `projection: MapProjection` と同じ役割で、
+   * 変更すると実行時に切り替わる。
+   */
+  projection?: MapProjection;
 }
 
 interface InternalMapLibreMapViewProps extends MapLibreMapViewProps {
-  projection: 'mercator' | 'globe';
+  projection: MapProjection;
 }
 
 /**
@@ -118,24 +127,24 @@ function InternalMapLibreMapView({
     provider
       .initialize(config)
       .then((ctrl) => {
-        state.setController(ctrl);
-        state.setCameraPositionChangeListener(() => {
+        mapViewStateInternal(state).setController(ctrl);
+        mapViewStateInternal(state).setCameraPositionChangeListener(() => {
           setCameraTick(t => t + 1);
         });
         setController(ctrl);
         typedControllerRef.current = ctrl as MapLibreViewController;
 
         ctrl.setCameraMoveStartListener((camera: MapCameraPosition) => {
-          state.updateCameraPosition(camera);
+          mapViewStateInternal(state).updateCameraPosition(camera);
           onCameraMoveStartRef.current?.(camera);
         });
         ctrl.setCameraMoveListener((camera: MapCameraPosition) => {
-          state.updateCameraPosition(camera);
+          mapViewStateInternal(state).updateCameraPosition(camera);
           onCameraMoveRef.current?.(camera);
           setCameraTick(t => t + 1);
         });
         ctrl.setCameraMoveEndListener((camera: MapCameraPosition) => {
-          state.updateCameraPosition(camera);
+          mapViewStateInternal(state).updateCameraPosition(camera);
           onCameraMoveEndRef.current?.(camera);
           setCameraTick(t => t + 1);
         });
@@ -146,7 +155,7 @@ function InternalMapLibreMapView({
           // これで `mapViewState.cameraPosition` が最初から権威ある値になり、
           // 拡張モジュールが `cameraPosition.visibleRegion.bounds` を初回から読める。
           const initial = typedControllerRef.current?.getCameraPosition() ?? null;
-          if (initial) state.updateCameraPosition(initial);
+          if (initial) mapViewStateInternal(state).updateCameraPosition(initial);
           setIsLoaded(true);
           onMapLoadedRef.current?.(state);
         });
@@ -214,8 +223,8 @@ function InternalMapLibreMapView({
       });
 
     return () => {
-      state.setCameraPositionChangeListener(null);
-      state.setController(null);
+      mapViewStateInternal(state).setCameraPositionChangeListener(null);
+      mapViewStateInternal(state).setController(null);
       typedControllerRef.current = null;
       bridgeUnsubs.current.forEach((unsub) => unsub());
       bridgeUnsubs.current = [];
@@ -226,6 +235,12 @@ function InternalMapLibreMapView({
   useMapUISettings(state, controller);
   // マップ生成時 config だけでなく、prop の変化にも追随させる（android-sdk 相当）。
   useCameraRestriction(controller, { cameraRestriction, restrictBounds, minZoom, maxZoom });
+
+  // 投影法も同様に prop の変化へ追随させる。コントローラ側が同値なら何もしないので、
+  // 生成時 config と同じ値で初回に呼ばれても再適用にはならない。
+  useEffect(() => {
+    typedControllerRef.current?.setProjection(projection);
+  }, [controller, projection]);
 
   // cameraTick is read here only to force a re-render when the camera moves,
   // so that toScreenOffset() recalculates bubble positions.
@@ -239,7 +254,7 @@ function InternalMapLibreMapView({
   useMarkerRenderingSupport(state, scope, controller);
 
   return (
-    <MapContext.Provider value={{ controller, isReady, isLoaded, state }}>
+    <MapContext.Provider value={createMapContextValue({ controller, isReady, isLoaded, state })}>
       <div
         style={{
           position: 'relative',
@@ -299,9 +314,9 @@ function InternalMapLibreMapView({
 }
 
 export function MapLibreMapView(props: MapLibreMapViewProps) {
-  return <InternalMapLibreMapView {...props} projection="globe" />;
+  return <InternalMapLibreMapView {...props} projection={props.projection ?? MapProjection.Globe} />;
 }
 
 export function MapLibreMapView2D(props: MapLibreMapViewProps) {
-  return <InternalMapLibreMapView {...props} projection="mercator" />;
+  return <InternalMapLibreMapView {...props} projection={props.projection ?? MapProjection.Mercator} />;
 }

@@ -107,7 +107,7 @@ export class MapLibreViewState
   }
 }
 
-export function useMapLibreViewState(params: MapLibreViewStateParams = {}): MapLibreViewState {
+export function useMapLibreViewState(params: MapLibreViewStateParams = {}): MapLibreViewStateInterface {
   const [state] = useState(() => new MapLibreViewState(params));
   return state;
 }
