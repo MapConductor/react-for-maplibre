@@ -3,6 +3,7 @@ import {
   type GeoPoint,
   type OnPolygonEventHandler,
   type PolygonState,
+  wrapClickedPoint,
 } from '@mapconductor/js-sdk-core';
 import { MapLibrePolygonOverlayRenderer } from './MapLibrePolygonOverlayRenderer';
 
@@ -75,7 +76,10 @@ export class MapLibrePolygonConductor {
   handleMapClick(clicked: GeoPoint): boolean {
     const entity = this.polygonOverlay.polygonManager.find(clicked);
     if (!entity) return false;
-    const polygonEvent = { state: entity.state, clicked };
+    // clicked は wrapClickedPoint で正規化してから配送する（日付変更線対策）。
+    // core の PolygonController.dispatchClick と同じ保証をこの経路にも与える。
+    // ヒットテスト（find）の入力は wrap しない。
+    const polygonEvent = { state: entity.state, clicked: wrapClickedPoint(clicked) };
     entity.state.onClick?.(polygonEvent);
     this.clickListener?.(polygonEvent);
     return true;

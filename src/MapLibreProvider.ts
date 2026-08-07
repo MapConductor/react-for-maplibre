@@ -9,6 +9,7 @@ import {
   type GeoRectBounds,
   type MapConfig,
   type MapViewControllerInterface,
+  withRasterHeaderTransform,
 } from '@mapconductor/js-sdk-core';
 import { MapLibreViewController } from './MapLibreViewController';
 import { ZoomAltitudeConverter } from './zoom/ZoomAltitudeConverter';
@@ -88,6 +89,11 @@ export class MapLibreProvider extends MapProvider {
       minZoom: config.minZoom !== undefined ? ZoomAltitudeConverter.googleZoomToMaplibreZoom(config.minZoom) : undefined,
       maxBounds: toLngLatBounds(config.restrictBounds),
       ...config.options,
+      // RasterLayer の extraHeaders をタイル要求に載せる唯一の口。maplibre-gl は
+      // transformRequest を生成時にしか受け取らないので、地図を作る側で必ず差しておく
+      // （あとから setTransformRequest で入れ替えると、利用者が渡したものを消してしまう）。
+      // spread のあとに置いているのは、利用者指定を上書きするためではなく包むため。
+      transformRequest: withRasterHeaderTransform(config.options?.transformRequest),
     } as maplibregl.MapOptions);
 
     // Track map immediately so destroy() can remove it even before load fires

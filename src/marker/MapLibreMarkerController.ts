@@ -148,7 +148,7 @@ export class MapLibreMarkerController extends AbstractMarkerController<MapLibreA
 
     const tiledStates = this.markerManager
       .allEntities()
-      .filter((e) => e.marker === null)
+      .filter(e => e.tiling)
       .map((e) => e.state);
 
     if (tiledStates.length === 0) {

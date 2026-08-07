@@ -2,7 +2,7 @@ import * as maplibregl from 'maplibre-gl';
 import {
   BaseMapViewController,
   createGeoRectBounds,
-  type CameraOptions,
+  type CameraRestriction,
   type CircleCapable,
   type CircleState,
   type GeoRectBounds,
@@ -29,8 +29,10 @@ import {
   type MapUISettings,
   type GlGestureHandlers,
   applyGlMapUISettings,
+  isEmptyCameraRestriction,
 } from '@mapconductor/js-sdk-core';
 import { lngLatFromEvent } from './helpers';
+import { ZoomAltitudeConverter } from './zoom/ZoomAltitudeConverter';
 import { toCameraPosition, toMapCameraPosition } from './MapCameraPosition';
 import { MapLibreMapViewHolder } from './MapLibreMapViewHolder';
 import { MapLibreMarkerController } from './marker/MapLibreMarkerController';
@@ -82,7 +84,16 @@ export class MapLibreViewController
   ) {
     super();
     this.mapInstance = holder.map;
-    this.initialized = holder.map.loaded();
+    // `MapLibreProvider.initialize()` は `map.once('load')` を **await してから**
+    // このコントローラを作る。つまり [setupEventListeners] が張る `on('load')` は
+    // もう二度と発火しない。ここで初期化済みと判定できないと
+    // `notifyMapInitialized()` が永久に呼ばれず、`onMapLoaded` も
+    // `useMapLoaded()` も MapLibre だけ反応しなくなる。
+    //
+    // `loaded()` では足りない。あれはスタイルに加えて「保留中の処理が無いこと」まで
+    // 見るので、load 直後でもタイル取得中は false を返す。スタイルが載っていれば
+    // 初期化は済んでいるので `isStyleLoaded()` も見る。
+    this.initialized = holder.map.loaded() || holder.map.isStyleLoaded() === true;
     this.holder = holder;
     this.holder.setController(this);
     this.styleReadyRef = styleReadyRef;
@@ -256,27 +267,25 @@ export class MapLibreViewController
     });
   }
 
-  animateCamera(position: MapCameraPosition, options?: CameraOptions): Promise<boolean> {
+  animateCamera(position: MapCameraPosition, durationMillis: number): Promise<boolean> {
     this.logicalTiltHint = position.tilt;
     const cam = toCameraPosition(position);
     return new Promise((resolve) => {
       this.mapInstance.once('moveend', () => resolve(true));
-      const padding = options?.padding ?? options?.paddings;
       this.mapInstance.easeTo({
         center: cam.center,
         zoom: cam.zoom,
         bearing: cam.bearing,
         pitch: cam.tilt,
-        duration: options?.duration || 500,
-        ...(padding != null ? { padding } : {}),
+        duration: durationMillis || 500,
       });
     });
   }
 
-  fitBounds(bounds: GeoRectBounds, options?: CameraOptions): Promise<boolean> {
+  fitBounds(bounds: GeoRectBounds, padding: number): Promise<boolean> {
     return new Promise((resolve) => {
       this.mapInstance.once('moveend', () => resolve(true));
-      const fitPadding = options?.padding ?? options?.paddings;
+      const fitPadding = padding;
       this.mapInstance.fitBounds(
         [
           [bounds.southWest!.longitude, bounds.southWest!.latitude],
@@ -288,9 +297,6 @@ export class MapLibreViewController
           // (maplibre-gl resets bearing to 0 when omitted).
           bearing: this.mapInstance.getBearing(),
           pitch: this.mapInstance.getPitch(),
-          // Only pass duration when provided: maplibre-gl v6 treats an explicit
-          // `duration: undefined` as a no-op fit (the camera never moves).
-          ...(options?.duration != null ? { duration: options.duration } : {}),
         },
       );
     });
@@ -312,9 +318,6 @@ export class MapLibreViewController
     return camera.copy({ visibleRegion });
   }
 
-  getBounds(): GeoRectBounds | null {
-    return this.getVisibleRegion()?.bounds ?? null;
-  }
 
   /**
    * Projects the four screen corners of the map viewport back to geo
@@ -476,7 +479,37 @@ export class MapLibreViewController
     await this.rasterLayerController.clear();
   }
 
+  /**
+   * MapLibre は MapLibre GL ベースでネイティブの範囲制限 API を持つので、
+   * `BaseMapViewController` のクランプ方式ではなく直接適用する。
+   * android-sdk の同名メソッドと同じ方針。
+   */
+  override setCameraRestriction(restriction: CameraRestriction | null): void {
+    // super は呼ばない。基底クラスに保持させるとカメラ停止時のクランプ補正まで走ってしまう。
+    // ネイティブ API 側で既に制限されているので二重適用になる（android-sdk と同じ振り分け）。
+    const effective = isEmptyCameraRestriction(restriction) ? null : restriction;
+
+    const bounds = effective?.bounds ?? null;
+    const sw = bounds?.southWest ?? null;
+    const ne = bounds?.northEast ?? null;
+    this.mapInstance.setMaxBounds(
+      sw != null && ne != null
+        ? [
+            [sw.longitude, sw.latitude],
+            [ne.longitude, ne.latitude],
+          ]
+        : null,
+    );
+
+    // 統一ズーム（Google 準拠）を MapLibre のズーム体系へ変換する。
+    const minZoom = effective?.minZoom;
+    const maxZoom = effective?.maxZoom;
+    this.mapInstance.setMinZoom(minZoom == null ? null : ZoomAltitudeConverter.googleZoomToMaplibreZoom(minZoom));
+    this.mapInstance.setMaxZoom(maxZoom == null ? null : ZoomAltitudeConverter.googleZoomToMaplibreZoom(maxZoom));
+  }
+
   destroy(): void {
+    super.destroy();
     this.markerEventController.destroy();
     void this.clearOverlays().finally(() => {
       this.markerController.destroy();

@@ -2,6 +2,7 @@ import {
   createRasterLayerEntity,
   RasterLayerController,
   RasterLayerManager,
+  type RasterHeaderSupport,
 } from '@mapconductor/js-sdk-core';
 import {
   type MapLibreRasterLayerHandle,
@@ -15,6 +16,15 @@ import {
  * ラスターレイヤーを貼り直す（android-sdk の reapplyStyle 相当）。
  */
 export class MapLibreRasterLayerController extends RasterLayerController<MapLibreRasterLayerHandle> {
+  /**
+   * maplibre-gl の transformRequest（MapLibreProvider が地図生成時に差している）でタイル要求にヘッダを載せる。
+   *
+   * userAgent はブラウザが上書きを許さないので、どのプロバイダでも web では効かない。
+   */
+  protected override get headerSupport(): RasterHeaderSupport {
+    return { provider: 'MapLibre', extraHeaders: true };
+  }
+
   constructor(renderer: MapLibreRasterLayerOverlayRenderer) {
     super({ rasterLayerManager: new RasterLayerManager<MapLibreRasterLayerHandle>(), renderer });
   }
