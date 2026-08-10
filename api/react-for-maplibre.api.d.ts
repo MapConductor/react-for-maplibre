@@ -1,6 +1,6 @@
 import * as maplibregl from 'maplibre-gl';
 export { setWorkerUrl as setMapLibreWorkerUrl } from 'maplibre-gl';
-import { MapConfig, GeoRectBounds, MapProjection, MarkerTilingOptions, MapProvider, MapViewControllerInterface, MapViewHolderBase, GeoPointInterface, Offset, GeoPoint, MarkerEntity, AbstractMarkerOverlayRenderer, MarkerManager, AddParams, ChangeParams, MarkerState, BitmapIcon, AbstractMarkerController, RasterLayerState, OnMarkerEventHandler, CircleEntity, AbstractCircleOverlayRenderer, CircleManagerInterface, CircleState, CircleController, PolylineEntity, AbstractPolylineOverlayRenderer, PolylineManagerInterface, PolylineState, PolylineController, MapCameraPosition, PolygonEntity, AbstractPolygonOverlayRenderer, PolygonManagerInterface, PolygonState, SlottedOverlayController, OnPolygonEventHandler, OverlayKind, OverlayHit, AbstractGroundImageOverlayRenderer, GroundImageState, GroundImageEntity, RasterLayerOverlayRenderer, RasterLayerAddParams, RasterLayerChangeParams, RasterLayerEntity, RasterLayerController, RasterHeaderSupport, BaseMapViewController, MarkerCapable, CircleCapable, PolylineCapable, PolygonCapable, GroundImageCapable, RasterLayerCapable, MapUISettings, OnMapInitializedHandler, MarkerAnimationOverlayHost, OnGroundImageEventHandler, CameraRestriction, MapViewBaseProps, WebMercatorZoomAltitudeConverter } from '@mapconductor/js-sdk-core';
+import { MapConfig, GeoRectBounds, MapProjection, MarkerTilingOptions, MapProvider, MapViewControllerInterface, MapViewHolderBase, GeoPointInterface, Offset, GeoPoint, MarkerEntity, AbstractMarkerOverlayRenderer, MarkerManager, AddParams, ChangeParams, MarkerState, BitmapIcon, AbstractMarkerController, RasterLayerState, DefaultMarkerEventController, CircleEntity, AbstractCircleOverlayRenderer, CircleManagerInterface, CircleState, CircleController, PolylineEntity, AbstractPolylineOverlayRenderer, PolylineManagerInterface, PolylineState, PolylineController, MapCameraPosition, PolygonEntity, AbstractPolygonOverlayRenderer, PolygonManagerInterface, PolygonState, SlottedOverlayController, OnPolygonEventHandler, OverlayKind, OverlayHit, AbstractGroundImageOverlayRenderer, GroundImageState, GroundImageEntity, RasterLayerOverlayRenderer, RasterLayerAddParams, RasterLayerChangeParams, RasterLayerEntity, RasterLayerController, RasterHeaderSupport, BaseMapViewController, MarkerCapable, CircleCapable, PolylineCapable, PolygonCapable, GroundImageCapable, RasterLayerCapable, MapUISettings, OnMapInitializedHandler, OnMarkerEventHandler, MarkerAnimationOverlayHost, OnGroundImageEventHandler, CameraRestriction, MapViewBaseProps, WebMercatorZoomAltitudeConverter } from '@mapconductor/js-sdk-core';
 import React from 'react';
 import { MapLibreViewStateInterface } from './state.js';
 export { MapLibreDesign, MapLibreMapDesignType, MapLibreViewState, useMapLibreViewState } from './state.js';
@@ -180,32 +180,18 @@ declare class MapLibreMarkerController extends AbstractMarkerController<MapLibre
     private hasCompositionChanges;
 }
 
-declare class MapLibreMarkerEventController {
-    private readonly controller;
-    private activePointerId;
-    private dragPanWasEnabled;
-    private pointerDownOffset;
-    private dragStarted;
-    /** Last observed pointer input type — used by MapLibreViewController for tile-marker hit radius. */
-    lastPointerType: 'touch' | 'mouse';
+/**
+ * MapLibre のマーカーイベント。
+ *
+ * ドラッグの状態遷移・パン抑止・リスナー転送はすべてコアの
+ * {@link DefaultMarkerEventController} が持つ。ここに残るのは
+ * **MapLibre 固有のもの**だけ——いまは何も無い。
+ *
+ * 移行前はこのファイルが 165 行あり、maplibre / mapbox / maptiler / tomtom / longdo の
+ * 5 本が**型名以外 1 文字も違わなかった**。
+ */
+declare class MapLibreMarkerEventController extends DefaultMarkerEventController<MapLibreActualMarker> {
     constructor(controller: MapLibreMarkerController);
-    resync(): void;
-    setClickListener(listener: OnMarkerEventHandler | null): void;
-    setDragStartListener(listener: OnMarkerEventHandler | null): void;
-    setDragListener(listener: OnMarkerEventHandler | null): void;
-    setDragEndListener(listener: OnMarkerEventHandler | null): void;
-    setAnimateStartListener(listener: OnMarkerEventHandler | null): void;
-    setAnimateEndListener(listener: OnMarkerEventHandler | null): void;
-    destroy(): void;
-    private readonly handlePointerDown;
-    private readonly handlePointerMove;
-    private readonly handlePointerUp;
-    private readonly handlePointerCancel;
-    private finishDrag;
-    private restoreMapInteraction;
-    private findMarkerAtPointer;
-    private positionFromPointer;
-    private localPoint;
 }
 
 type MapLibreActualCircle = PolygonFeature & {
