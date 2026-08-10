@@ -1,6 +1,6 @@
 import * as maplibregl from 'maplibre-gl';
 export { setWorkerUrl as setMapLibreWorkerUrl } from 'maplibre-gl';
-import { MapConfig, GeoRectBounds, MapProjection, MarkerTilingOptions, MapProvider, MapViewControllerInterface, MapViewHolderBase, GeoPointInterface, Offset, GeoPoint, MarkerEntity, AbstractMarkerOverlayRenderer, MarkerManager, AddParams, ChangeParams, MarkerState, BitmapIcon, AbstractMarkerController, RasterLayerState, OnMarkerEventHandler, CircleEntity, AbstractCircleOverlayRenderer, CircleManagerInterface, CircleState, CircleController, PolylineEntity, AbstractPolylineOverlayRenderer, PolylineManagerInterface, PolylineState, PolylineController, MapCameraPosition, PolygonEntity, AbstractPolygonOverlayRenderer, PolygonManagerInterface, PolygonState, OnPolygonEventHandler, AbstractGroundImageOverlayRenderer, GroundImageState, GroundImageEntity, RasterLayerOverlayRenderer, RasterLayerAddParams, RasterLayerChangeParams, RasterLayerEntity, RasterLayerController, RasterHeaderSupport, BaseMapViewController, MarkerCapable, CircleCapable, PolylineCapable, PolygonCapable, GroundImageCapable, RasterLayerCapable, MapUISettings, OnMapInitializedHandler, MarkerAnimationOverlayHost, OnCircleEventHandler, OnPolylineEventHandler, OnGroundImageEventHandler, CameraRestriction, MapViewBaseProps, WebMercatorZoomAltitudeConverter } from '@mapconductor/js-sdk-core';
+import { MapConfig, GeoRectBounds, MapProjection, MarkerTilingOptions, MapProvider, MapViewControllerInterface, MapViewHolderBase, GeoPointInterface, Offset, GeoPoint, MarkerEntity, AbstractMarkerOverlayRenderer, MarkerManager, AddParams, ChangeParams, MarkerState, BitmapIcon, AbstractMarkerController, RasterLayerState, OnMarkerEventHandler, CircleEntity, AbstractCircleOverlayRenderer, CircleManagerInterface, CircleState, CircleController, PolylineEntity, AbstractPolylineOverlayRenderer, PolylineManagerInterface, PolylineState, PolylineController, MapCameraPosition, PolygonEntity, AbstractPolygonOverlayRenderer, PolygonManagerInterface, PolygonState, SlottedOverlayController, OnPolygonEventHandler, OverlayKind, AbstractGroundImageOverlayRenderer, GroundImageState, GroundImageEntity, RasterLayerOverlayRenderer, RasterLayerAddParams, RasterLayerChangeParams, RasterLayerEntity, RasterLayerController, RasterHeaderSupport, BaseMapViewController, MarkerCapable, CircleCapable, PolylineCapable, PolygonCapable, GroundImageCapable, RasterLayerCapable, MapUISettings, OnMapInitializedHandler, MarkerAnimationOverlayHost, OnGroundImageEventHandler, CameraRestriction, MapViewBaseProps, WebMercatorZoomAltitudeConverter } from '@mapconductor/js-sdk-core';
 import React from 'react';
 import { MapLibreViewStateInterface } from './state.js';
 export { MapLibreDesign, MapLibreMapDesignType, MapLibreViewState, useMapLibreViewState } from './state.js';
@@ -374,7 +374,7 @@ declare class MapLibrePolygonOverlayRenderer extends AbstractPolygonOverlayRende
     onPostProcess(): Promise<void>;
 }
 
-declare class MapLibrePolygonConductor {
+declare class MapLibrePolygonConductor implements SlottedOverlayController {
     readonly polygonOverlay: MapLibrePolygonOverlayRenderer;
     clickListener: OnPolygonEventHandler | null;
     private operation;
@@ -394,6 +394,11 @@ declare class MapLibrePolygonConductor {
      */
     handleMapClick(clicked: GeoPoint): boolean;
     private enqueue;
+    readonly kind: OverlayKind;
+    hasId(id: string): boolean;
+    compositionAny(data: unknown[]): Promise<void>;
+    updateAny(state: unknown): Promise<void>;
+    setClickListenerAny(listener: unknown): void;
 }
 
 declare class MapLibreGroundImageOverlayRenderer extends AbstractGroundImageOverlayRenderer<MapLibreMapViewHolder, string> {
@@ -417,7 +422,7 @@ declare class MapLibreGroundImageOverlayRenderer extends AbstractGroundImageOver
     removeGroundImage(entity: GroundImageEntity<string>): Promise<void>;
 }
 
-declare class MapLibreGroundImageController {
+declare class MapLibreGroundImageController implements SlottedOverlayController {
     private readonly groundImageStates;
     private readonly groundImageIds;
     private readonly pendingUpdates;
@@ -434,6 +439,11 @@ declare class MapLibreGroundImageController {
     private cancelPendingUpdates;
     private upsert;
     private removeById;
+    readonly kind: OverlayKind;
+    hasId(id: string): boolean;
+    compositionAny(data: unknown[]): Promise<void>;
+    updateAny(state: unknown): Promise<void>;
+    setClickListenerAny(_listener: unknown): void;
 }
 
 /** GL のソース／レイヤー ID の対。android-sdk の MapLibreRasterLayerHandle と同一。 */
@@ -514,7 +524,6 @@ declare class MapLibreViewController extends BaseMapViewController implements Ma
     getCameraPosition(): MapCameraPosition | null;
     compositionMarkers(data: MarkerState[]): Promise<void>;
     updateMarker(state: MarkerState): Promise<void>;
-    hasMarker(state: MarkerState): boolean;
     setOnMarkerClickListener(_listener: OnMarkerEventHandler | null): void;
     setOnMarkerDragStart(_listener: OnMarkerEventHandler | null): void;
     setOnMarkerDrag(_listener: OnMarkerEventHandler | null): void;
@@ -522,25 +531,7 @@ declare class MapLibreViewController extends BaseMapViewController implements Ma
     setOnMarkerAnimateStart(_listener: OnMarkerEventHandler | null): void;
     setOnMarkerAnimateEnd(_listener: OnMarkerEventHandler | null): void;
     setMarkerAnimationOverlayHost(host: MarkerAnimationOverlayHost | null): void;
-    compositionCircles(data: CircleState[]): Promise<void>;
-    updateCircle(state: CircleState): Promise<void>;
-    hasCircle(state: CircleState): boolean;
-    setOnCircleClickListener(_listener: OnCircleEventHandler | null): void;
-    compositionPolylines(data: PolylineState[]): Promise<void>;
-    updatePolyline(state: PolylineState): Promise<void>;
-    hasPolyline(state: PolylineState): boolean;
-    setOnPolylineClickListener(_listener: OnPolylineEventHandler | null): void;
-    compositionPolygons(data: PolygonState[]): Promise<void>;
-    updatePolygon(state: PolygonState): Promise<void>;
-    hasPolygon(state: PolygonState): boolean;
-    setOnPolygonClickListener(_listener: OnPolygonEventHandler | null): void;
-    compositionGroundImages(data: GroundImageState[]): Promise<void>;
-    updateGroundImage(state: GroundImageState): Promise<void>;
-    hasGroundImage(state: GroundImageState): boolean;
     setOnGroundImageClickListener(_listener: OnGroundImageEventHandler | null): void;
-    compositionRasterLayers(data: RasterLayerState[]): Promise<void>;
-    updateRasterLayer(state: RasterLayerState): Promise<void>;
-    hasRasterLayer(state: RasterLayerState): boolean;
     clearOverlays(): Promise<void>;
     /**
      * MapLibre は MapLibre GL ベースでネイティブの範囲制限 API を持つので、
