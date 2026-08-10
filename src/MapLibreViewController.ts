@@ -21,6 +21,7 @@ import {
   applyGlMapUISettings,
   isEmptyCameraRestriction,
   MapProjection,
+  type GeoPoint,
 } from '@mapconductor/js-sdk-core';
 import { ZoomAltitudeConverter } from './zoom/ZoomAltitudeConverter';
 import { MapLibreMapViewHolder } from './MapLibreMapViewHolder';
@@ -160,6 +161,7 @@ export class MapLibreViewController
       },
       onMapInitialized: () => this.notifyMapInitialized(),
       onMapClick: (point) => this.notifyMapClick(point),
+      dispatchTap: (point) => this.dispatchTap(point),
       onMapLongClick: (point) => this.notifyMapLongClick(point),
       onCameraMoveStart: (camera) => this.notifyCameraMoveStart(camera),
       onCameraMove: (camera) => this.notifyCameraMove(camera),
@@ -188,6 +190,23 @@ export class MapLibreViewController
 
   getCameraPosition(): MapCameraPosition | null {
     return readCameraPosition(this.mapInstance, this.holder, this.logicalTiltHint);
+  }
+
+  /**
+   * マーカーのヒットテストと配送。カスケードの先頭。
+   *
+   * ズームとポインタ種別（タッチかマウスかで許容半径が変わる）が要るので
+   * コアの既定ではなくここで持つ。判定自体は core の MarkerManager。
+   */
+  protected override dispatchMarkerTap(point: GeoPoint): boolean {
+    const entity = this.markerController.findWithZoom(
+      point,
+      this.mapInstance.getZoom(),
+      this.markerEventController.lastPointerType,
+    );
+    if (!entity?.state.clickable) return false;
+    this.markerController.dispatchClick(entity.state);
+    return true;
   }
 
   async compositionMarkers(data: MarkerState[]): Promise<void> {
