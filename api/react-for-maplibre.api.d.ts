@@ -466,6 +466,17 @@ declare class MapLibreRasterLayerOverlayRenderer implements RasterLayerOverlayRe
     onPostProcess(): Promise<void>;
     private addLayer;
     private updateLayer;
+    /**
+     * スタイル再読込中に頼まれた削除の保留分。
+     *
+     * 追加は「ハンドルだけ返して resync が貼り直す」で済むが、削除は manager から
+     * 先に消えるため resync では拾えない。黙って捨てると、スタイル差分適用で
+     * 生き残った GL レイヤが画面に残り続ける（RasterLayer ページで選んだレリーフが
+     * GeoJSON Layer ページにも出る、という形で顕在化した）。ここで保留しておき、
+     * スタイルが編集可能になった最初の操作でまとめて消す。
+     */
+    private pendingRemovals;
+    private flushPendingRemovals;
     private removeLayer;
 }
 
