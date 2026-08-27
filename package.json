@@ -1,6 +1,6 @@
 {
   "name": "@mapconductor/react-for-maplibre",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "MapLibre provider for MapConductor React SDK",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -50,7 +50,7 @@
     "maplibre-gl": "^6.6.0"
   },
   "devDependencies": {
-    "react": "^19.2.7",
+    "react": "^19.2.8",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3"
   }
