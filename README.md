@@ -34,19 +34,18 @@ that worker and registers it when the first map is created.
 
 Two exceptions:
 
-- **Vite dev server.** Add the plugin shipped with this package:
+- **Vite dev server.** Vite transforms `.mjs` files under `node_modules` as
+  modules and injects a `/@vite/client` import, which cannot run inside a
+  worker. Register the worker yourself for dev:
 
   ```ts
-  // vite.config.ts
-  import mapconductor from '@mapconductor/react-for-maplibre/vite';
+  import { setMapLibreWorkerUrl } from '@mapconductor/react-for-maplibre';
+  import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 
-  export default defineConfig({ plugins: [react(), mapconductor()] });
+  setMapLibreWorkerUrl(workerUrl);
   ```
 
-  Vite's dev server transforms `.mjs` files under `node_modules` as modules and
-  injects a `/@vite/client` import, which cannot run inside a worker. The plugin
-  serves the bundled worker before that transform runs. It is `apply: 'serve'`,
-  so production builds are untouched and work without it.
+  Vite production builds work without this.
 
 - **Serving the worker from your own URL** (a shared CDN, or a build that
   already emits it). Call `setMapLibreWorkerUrl(url)` before the first map;

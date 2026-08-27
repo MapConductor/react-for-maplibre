@@ -27,20 +27,18 @@ primer mapa.
 
 Dos excepciones:
 
-- **Servidor de desarrollo de Vite.** Agrega el plugin incluido en este paquete:
+- **Servidor de desarrollo de Vite.** Vite transforma los archivos `.mjs` dentro
+  de `node_modules` como módulos e inyecta un import de `/@vite/client`, que no
+  puede ejecutarse dentro de un worker. Regístralo tú mismo en desarrollo:
 
   ```ts
-  // vite.config.ts
-  import mapconductor from '@mapconductor/react-for-maplibre/vite';
+  import { setMapLibreWorkerUrl } from '@mapconductor/react-for-maplibre';
+  import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 
-  export default defineConfig({ plugins: [react(), mapconductor()] });
+  setMapLibreWorkerUrl(workerUrl);
   ```
 
-  El servidor de desarrollo de Vite transforma los archivos `.mjs` dentro de
-  `node_modules` como módulos e inyecta un import de `/@vite/client`, que no
-  puede ejecutarse dentro de un worker. El plugin sirve el worker incluido antes
-  de esa transformación. Usa `apply: 'serve'`, así que las compilaciones de
-  producción no se ven afectadas y funcionan sin él.
+  Las compilaciones de producción de Vite funcionan sin esto.
 
 - **Servir el worker desde tu propia URL** (una CDN compartida, o una compilación
   que ya lo emite). Llama a `setMapLibreWorkerUrl(url)` antes del primer mapa;

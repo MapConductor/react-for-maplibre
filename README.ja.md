@@ -26,19 +26,18 @@ URL から読み込むため、本パッケージが自己完結版の worker �
 
 例外は 2 つです。
 
-- **Vite の開発サーバー。** 本パッケージ同梱のプラグインを追加してください。
+- **Vite の開発サーバー。** Vite は `node_modules` 配下の `.mjs` をモジュールとして
+  変換し、worker 内では動作しない `/@vite/client` の import を注入します。開発時は
+  自分で登録してください。
 
   ```ts
-  // vite.config.ts
-  import mapconductor from '@mapconductor/react-for-maplibre/vite';
+  import { setMapLibreWorkerUrl } from '@mapconductor/react-for-maplibre';
+  import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 
-  export default defineConfig({ plugins: [react(), mapconductor()] });
+  setMapLibreWorkerUrl(workerUrl);
   ```
 
-  Vite の dev サーバーは `node_modules` 配下の `.mjs` をモジュールとして変換し、
-  worker 内では動作しない `/@vite/client` の import を注入します。プラグインは
-  その変換より前に同梱 worker を返します。`apply: 'serve'` なので本番ビルドには
-  影響せず、プラグイン無しでも動作します。
+  Vite の本番ビルドはこの指定なしで動作します。
 
 - **worker を自前の URL から配信する場合**（共有 CDN や、既に出力しているビルド）。
   最初の地図を生成する前に `setMapLibreWorkerUrl(url)` を呼べば、同梱 worker は
