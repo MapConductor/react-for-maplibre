@@ -88,10 +88,16 @@ export class MapLibreViewController
     // `notifyMapInitialized()` が永久に呼ばれず、`onMapLoaded` も
     // `useMapLoaded()` も MapLibre だけ反応しなくなる。
     //
-    // `loaded()` では足りない。あれはスタイルに加えて「保留中の処理が無いこと」まで
-    // 見るので、load 直後でもタイル取得中は false を返す。スタイルが載っていれば
-    // 初期化は済んでいるので `isStyleLoaded()` も見る。
-    this.initialized = holder.map.loaded() || holder.map.isStyleLoaded() === true;
+    // 以前は `loaded() || isStyleLoaded()` で判定していたが、load 直後は **どちらも
+    // false** になるため機能していなかった。`loaded()` は保留中の処理が無いことまで
+    // 見るので当然として、`isStyleLoaded()` も maplibre v6 では `Style.loaded()` を
+    // 呼び、スタイル文書だけでなく全ての tileManager の完了まで確認する。つまり
+    // タイル取得中は false のままになる。load 直後は必ずタイル取得中なので、
+    // 実質いつも false だった。
+    //
+    // ここに来た時点で provider が load を待ち終えているのは上のとおりなので、
+    // 状態を問い合わせずに初期化済みとして扱う。
+    this.initialized = true;
     this.holder = holder;
     this.holder.setController(this);
     this.styleReadyRef = styleReadyRef;
