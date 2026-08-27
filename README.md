@@ -26,33 +26,34 @@ npm install @mapconductor/react-for-maplibre @mapconductor/js-sdk-core @mapcondu
 `maplibre-gl` (v6) is bundled as a dependency; no API key is required for the
 built-in OpenStreetMap Japan styles.
 
-## Bundler setup (MapLibre GL JS v6)
+## Web Worker (MapLibre GL JS v6)
 
-MapLibre GL JS v6 is ESM-only and loads its Web Worker from a URL. With a
-bundler (Vite, webpack, esbuild, Rollup) that URL must be registered once,
-before the first map is created. This package re-exports maplibre's
-`setWorkerUrl` as `setMapLibreWorkerUrl` so you can do it without importing
-`maplibre-gl` directly:
+Nothing to set up. MapLibre GL JS v6 loads its Web Worker from a URL that no
+bundler can resolve on its own, so this package ships a self-contained build of
+that worker and registers it when the first map is created.
 
-```ts
-// Vite
-import { setMapLibreWorkerUrl } from '@mapconductor/react-for-maplibre';
-import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
+Two exceptions:
 
-setMapLibreWorkerUrl(workerUrl);
-```
+- **Vite dev server.** Vite transforms `.mjs` files under `node_modules` as
+  modules and injects a `/@vite/client` import, which cannot run inside a
+  worker. Register the worker yourself for dev:
 
-```ts
-// webpack 5+ / esbuild / Rollup (after copying the worker next to your bundle)
-import { setMapLibreWorkerUrl } from '@mapconductor/react-for-maplibre';
+  ```ts
+  import { setMapLibreWorkerUrl } from '@mapconductor/react-for-maplibre';
+  import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 
-setMapLibreWorkerUrl(new URL('maplibre-gl/dist/maplibre-gl-worker.mjs', import.meta.url).toString());
-```
+  setMapLibreWorkerUrl(workerUrl);
+  ```
 
-For SSR with Vite, add `maplibre-gl` to `ssr.noExternal` so the worker-URL
-import resolves through Vite. See the
-[v5→v6 migration guide](https://github.com/maplibre/maplibre-gl-js/blob/v6.0.0/docs/guides/v5-to-v6-migration-guide.md)
-for per-bundler details.
+  Vite production builds work without this.
+
+- **Serving the worker from your own URL** (a shared CDN, or a build that
+  already emits it). Call `setMapLibreWorkerUrl(url)` before the first map;
+  the bundled worker is then skipped and never downloaded.
+
+If the worker fails to load, MapLibre does not raise an error — the map renders
+its background and no tiles ever arrive. A network panel with zero `.pbf`
+requests is the symptom to look for.
 
 ![](https://raw.githubusercontent.com/mapconductor/react-for-maplibre/docs/images/hello-map.jpg)
 
