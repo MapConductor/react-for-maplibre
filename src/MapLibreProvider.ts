@@ -34,6 +34,7 @@ import { MapLibreGroundImageController } from './groundimage/MapLibreGroundImage
 import { MapLibreGroundImageOverlayRenderer } from './groundimage/MapLibreGroundImageOverlayRenderer';
 import { MapLibreRasterLayerController } from './raster/MapLibreRasterLayerController';
 import { MapLibreRasterLayerOverlayRenderer } from './raster/MapLibreRasterLayerOverlayRenderer';
+import { ensureMapLibreWorker } from './workerBootstrap';
 
 export interface MapLibreConfig extends MapConfig {
   style?: string | maplibregl.StyleSpecification;
@@ -68,6 +69,11 @@ export class MapLibreProvider extends MapProvider {
     if (this.controller) {
       return this.controller;
     }
+
+    // 同梱 worker の登録。maplibre は最初の地図を作った時点でワーカープールを
+    // 立ち上げるので、それより前に URL が入っている必要がある。import 時の副作用に
+    // していないのは、SSR 時に評価される位置を避けるため。
+    ensureMapLibreWorker();
 
     const container =
       typeof config.container === 'string'

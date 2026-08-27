@@ -18,33 +18,34 @@ npm install @mapconductor/react-for-maplibre @mapconductor/js-sdk-core @mapcondu
 
 `maplibre-gl` (v6) viene incluido como dependencia; no se requiere clave de API para los estilos integrados de OpenStreetMap Japan.
 
-## Configuración del empaquetador (MapLibre GL JS v6)
+## Web Worker (MapLibre GL JS v6)
 
-MapLibre GL JS v6 es solo ESM y carga su Web Worker desde una URL. Con un
-empaquetador (Vite, webpack, esbuild, Rollup) esa URL debe registrarse una vez,
-antes de crear el primer mapa. Este paquete reexporta `setWorkerUrl` de maplibre
-como `setMapLibreWorkerUrl` para que puedas hacerlo sin importar `maplibre-gl`
-directamente:
+No requiere configuración. MapLibre GL JS v6 carga su Web Worker desde una URL
+que ningún empaquetador puede resolver por sí solo, por lo que este paquete
+incluye una compilación autocontenida de ese worker y la registra al crear el
+primer mapa.
 
-```ts
-// Vite
-import { setMapLibreWorkerUrl } from '@mapconductor/react-for-maplibre';
-import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
+Dos excepciones:
 
-setMapLibreWorkerUrl(workerUrl);
-```
+- **Servidor de desarrollo de Vite.** Vite transforma los archivos `.mjs` dentro
+  de `node_modules` como módulos e inyecta un import de `/@vite/client`, que no
+  puede ejecutarse dentro de un worker. Regístralo tú mismo en desarrollo:
 
-```ts
-// webpack 5+ / esbuild / Rollup (después de copiar el worker junto a tu bundle)
-import { setMapLibreWorkerUrl } from '@mapconductor/react-for-maplibre';
+  ```ts
+  import { setMapLibreWorkerUrl } from '@mapconductor/react-for-maplibre';
+  import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 
-setMapLibreWorkerUrl(new URL('maplibre-gl/dist/maplibre-gl-worker.mjs', import.meta.url).toString());
-```
+  setMapLibreWorkerUrl(workerUrl);
+  ```
 
-Para SSR con Vite, agrega `maplibre-gl` a `ssr.noExternal` para que el import de
-la URL del worker se resuelva a través de Vite. Consulta la
-[guía de migración v5→v6](https://github.com/maplibre/maplibre-gl-js/blob/v6.0.0/docs/guides/v5-to-v6-migration-guide.md)
-para más detalles por empaquetador.
+  Las compilaciones de producción de Vite funcionan sin esto.
+
+- **Servir el worker desde tu propia URL** (una CDN compartida, o una compilación
+  que ya lo emite). Llama a `setMapLibreWorkerUrl(url)` antes del primer mapa;
+  el worker incluido se omite y nunca se descarga.
+
+Si el worker no carga, MapLibre no lanza ningún error: el mapa dibuja su fondo y
+los tiles nunca llegan. Cero solicitudes `.pbf` en el panel de red es el síntoma.
 
 ![](https://raw.githubusercontent.com/mapconductor/react-for-maplibre/docs/images/hello-map.jpg)
 

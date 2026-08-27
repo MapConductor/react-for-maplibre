@@ -18,33 +18,34 @@ npm install @mapconductor/react-for-maplibre @mapconductor/js-sdk-core @mapcondu
 
 `maplibre-gl`（v6）は依存関係として同梱されています。組み込みの OpenStreetMap Japan スタイルに API キーは不要です。
 
-## バンドラー設定（MapLibre GL JS v6）
+## Web Worker（MapLibre GL JS v6）
 
-MapLibre GL JS v6 は ESM 専用となり、Web Worker を URL から読み込みます。バンドラー
-（Vite、webpack、esbuild、Rollup）を使う場合は、最初の地図を生成する前に一度だけその
-URL を登録する必要があります。本パッケージは maplibre の `setWorkerUrl` を
-`setMapLibreWorkerUrl` として再エクスポートしているため、`maplibre-gl` を直接
-import せずに設定できます。
+設定は不要です。MapLibre GL JS v6 は Web Worker をどのバンドラーも解決できない
+URL から読み込むため、本パッケージが自己完結版の worker を同梱し、最初の地図を
+生成する時点で自動的に登録します。
 
-```ts
-// Vite
-import { setMapLibreWorkerUrl } from '@mapconductor/react-for-maplibre';
-import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
+例外は 2 つです。
 
-setMapLibreWorkerUrl(workerUrl);
-```
+- **Vite の開発サーバー。** Vite は `node_modules` 配下の `.mjs` をモジュールとして
+  変換し、worker 内では動作しない `/@vite/client` の import を注入します。開発時は
+  自分で登録してください。
 
-```ts
-// webpack 5+ / esbuild / Rollup（worker をバンドル横にコピーした後）
-import { setMapLibreWorkerUrl } from '@mapconductor/react-for-maplibre';
+  ```ts
+  import { setMapLibreWorkerUrl } from '@mapconductor/react-for-maplibre';
+  import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 
-setMapLibreWorkerUrl(new URL('maplibre-gl/dist/maplibre-gl-worker.mjs', import.meta.url).toString());
-```
+  setMapLibreWorkerUrl(workerUrl);
+  ```
 
-Vite で SSR を使う場合は、worker の URL import が Vite 経由で解決されるよう
-`ssr.noExternal` に `maplibre-gl` を追加してください。詳細は
-[v5→v6 移行ガイド](https://github.com/maplibre/maplibre-gl-js/blob/v6.0.0/docs/guides/v5-to-v6-migration-guide.md)
-を参照してください。
+  Vite の本番ビルドはこの指定なしで動作します。
+
+- **worker を自前の URL から配信する場合**（共有 CDN や、既に出力しているビルド）。
+  最初の地図を生成する前に `setMapLibreWorkerUrl(url)` を呼べば、同梱 worker は
+  スキップされ、ダウンロードもされません。
+
+worker の読み込みに失敗しても MapLibre は例外を投げません。地図は背景色だけ表示され、
+タイルが永久に届かない状態になります。ネットワークパネルで `.pbf` の要求が 0 件なら
+この症状です。
 
 ![](https://raw.githubusercontent.com/mapconductor/react-for-maplibre/docs/images/hello-map.jpg)
 
