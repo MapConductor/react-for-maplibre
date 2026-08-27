@@ -32,24 +32,16 @@ Nothing to set up. MapLibre GL JS v6 loads its Web Worker from a URL that no
 bundler can resolve on its own, so this package ships a self-contained build of
 that worker and registers it when the first map is created.
 
-Two exceptions:
+This holds for Vite and webpack/Rspack alike, in dev and in production builds.
 
-- **Vite dev server.** Vite transforms `.mjs` files under `node_modules` as
-  modules and injects a `/@vite/client` import, which cannot run inside a
-  worker. Register the worker yourself for dev:
+One exception: **serving the worker from your own URL** — a shared CDN, or a
+build that already emits it. Call `setMapLibreWorkerUrl(url)` before the first
+map; the bundled worker is then skipped and never downloaded.
 
-  ```ts
-  import { setMapLibreWorkerUrl } from '@mapconductor/react-for-maplibre';
-  import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
-
-  setMapLibreWorkerUrl(workerUrl);
-  ```
-
-  Vite production builds work without this.
-
-- **Serving the worker from your own URL** (a shared CDN, or a build that
-  already emits it). Call `setMapLibreWorkerUrl(url)` before the first map;
-  the bundled worker is then skipped and never downloaded.
+Vite's dev server runs the bundled worker through its transform pipeline, which
+injects a `/@vite/client` import and inflates the file (~478 KB to ~2.8 MB).
+That is noisy but harmless — the worker still runs. Production builds emit it as
+a plain asset.
 
 If the worker fails to load, MapLibre does not raise an error — the map renders
 its background and no tiles ever arrive. A network panel with zero `.pbf`

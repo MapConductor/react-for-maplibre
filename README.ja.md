@@ -24,24 +24,15 @@ npm install @mapconductor/react-for-maplibre @mapconductor/js-sdk-core @mapcondu
 URL から読み込むため、本パッケージが自己完結版の worker を同梱し、最初の地図を
 生成する時点で自動的に登録します。
 
-例外は 2 つです。
+これは Vite でも webpack / Rspack でも、dev・本番ビルドのいずれでも同じです。
 
-- **Vite の開発サーバー。** Vite は `node_modules` 配下の `.mjs` をモジュールとして
-  変換し、worker 内では動作しない `/@vite/client` の import を注入します。開発時は
-  自分で登録してください。
+例外は 1 つ、**worker を自前の URL から配信する場合**（共有 CDN や、既に出力して
+いるビルド）です。最初の地図を生成する前に `setMapLibreWorkerUrl(url)` を呼べば、
+同梱 worker はスキップされ、ダウンロードもされません。
 
-  ```ts
-  import { setMapLibreWorkerUrl } from '@mapconductor/react-for-maplibre';
-  import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
-
-  setMapLibreWorkerUrl(workerUrl);
-  ```
-
-  Vite の本番ビルドはこの指定なしで動作します。
-
-- **worker を自前の URL から配信する場合**（共有 CDN や、既に出力しているビルド）。
-  最初の地図を生成する前に `setMapLibreWorkerUrl(url)` を呼べば、同梱 worker は
-  スキップされ、ダウンロードもされません。
+なお Vite の dev サーバーは同梱 worker を変換パイプラインに通すため、
+`/@vite/client` の import が注入されファイルサイズも膨らみます（約 478KB → 約 2.8MB）。
+見た目は不穏ですが動作に影響はありません。本番ビルドでは素のアセットとして出力されます。
 
 worker の読み込みに失敗しても MapLibre は例外を投げません。地図は背景色だけ表示され、
 タイルが永久に届かない状態になります。ネットワークパネルで `.pbf` の要求が 0 件なら

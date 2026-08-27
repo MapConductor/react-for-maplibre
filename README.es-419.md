@@ -25,24 +25,17 @@ que ningún empaquetador puede resolver por sí solo, por lo que este paquete
 incluye una compilación autocontenida de ese worker y la registra al crear el
 primer mapa.
 
-Dos excepciones:
+Esto aplica igual a Vite y a webpack/Rspack, tanto en desarrollo como en
+compilaciones de producción.
 
-- **Servidor de desarrollo de Vite.** Vite transforma los archivos `.mjs` dentro
-  de `node_modules` como módulos e inyecta un import de `/@vite/client`, que no
-  puede ejecutarse dentro de un worker. Regístralo tú mismo en desarrollo:
+Una excepción: **servir el worker desde tu propia URL** — una CDN compartida, o
+una compilación que ya lo emite. Llama a `setMapLibreWorkerUrl(url)` antes del
+primer mapa; el worker incluido se omite y nunca se descarga.
 
-  ```ts
-  import { setMapLibreWorkerUrl } from '@mapconductor/react-for-maplibre';
-  import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
-
-  setMapLibreWorkerUrl(workerUrl);
-  ```
-
-  Las compilaciones de producción de Vite funcionan sin esto.
-
-- **Servir el worker desde tu propia URL** (una CDN compartida, o una compilación
-  que ya lo emite). Llama a `setMapLibreWorkerUrl(url)` antes del primer mapa;
-  el worker incluido se omite y nunca se descarga.
+El servidor de desarrollo de Vite pasa el worker incluido por su pipeline de
+transformación, lo que inyecta un import de `/@vite/client` y aumenta el tamaño
+del archivo (de ~478 KB a ~2.8 MB). Es ruidoso pero inofensivo: el worker sigue
+funcionando. Las compilaciones de producción lo emiten como un asset normal.
 
 Si el worker no carga, MapLibre no lanza ningún error: el mapa dibuja su fondo y
 los tiles nunca llegan. Cero solicitudes `.pbf` en el panel de red es el síntoma.
