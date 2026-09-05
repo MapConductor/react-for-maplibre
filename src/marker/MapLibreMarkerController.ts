@@ -163,7 +163,14 @@ export class MapLibreMarkerController extends AbstractMarkerController<MapLibreA
     const server = LocalTileServer.startServer();
 
     const { iconScaleCallback } = this.tilingOptions;
-    const tileRenderer = new MarkerTileRenderer<MarkerState>(tiledStates, 256, iconScaleCallback ?? undefined);
+    const tileRenderer = new MarkerTileRenderer<MarkerState>(
+      tiledStates,
+      256,
+      iconScaleCallback ?? undefined,
+      1.0,
+      false,
+      this.tilingOptions.declutterPx,
+    );
     this.tileRenderer = tileRenderer;
     this.tileVersion++;
     server.register(this.tileRouteId, tileRenderer);
