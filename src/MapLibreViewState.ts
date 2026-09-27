@@ -44,7 +44,6 @@ export class MapLibreViewState
 
   // Called by MapLibreView when camera position changes
 
-  // If zoom/bearing/tilt are all 0, treat as position-only update (matches Android/iOS behavior)
 }
 
 export function useMapLibreViewState(params: MapLibreViewStateParams = {}): MapLibreViewStateInterface {
