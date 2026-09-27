@@ -28,7 +28,7 @@
     "postbuild": "node -e \"require('fs').copyFileSync(require.resolve('maplibre-gl/dist/maplibre-gl.css'), './dist/style.css')\"",
     "dev": "tsup src/index.ts src/state.ts --format cjs,esm --watch",
     "clean": "rm -rf dist",
-    "test": "echo 'No tests yet'",
+    "test": "node --test \"test/**/*.test.mjs\"",
     "build:worker": "node scripts/build-worker.mjs"
   },
   "keywords": [
