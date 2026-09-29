@@ -1,4 +1,4 @@
-import type { AttributionRule, MapDesignTypeInterface } from '@mapconductor/js-sdk-core';
+import { BLANK_MAP_STYLE_URL, type AttributionRule, type MapDesignTypeInterface } from '@mapconductor/js-sdk-core';
 
 export interface MapLibreMapDesignType extends MapDesignTypeInterface<string> {
   readonly styleJsonURL: string;
@@ -23,6 +23,8 @@ export class MapLibreDesign implements MapLibreMapDesignType {
     return `mapDesign_id=${this.id},style=${this.styleJsonURL}`;
   }
 
+  /** No basemap: a background colour and nothing else. */
+  static readonly None = new MapLibreDesign('none', BLANK_MAP_STYLE_URL);
   static readonly DemoTiles = new MapLibreDesign('demo', 'https://demotiles.maplibre.org/style.json');
   static readonly OsmBright = new MapLibreDesign('osm-bright', 'https://tile.openstreetmap.jp/styles/osm-bright/style.json');
   static readonly OsmBrightEn = new MapLibreDesign('osm-bright-en', 'https://tile.openstreetmap.jp/styles/osm-bright-en/style.json');

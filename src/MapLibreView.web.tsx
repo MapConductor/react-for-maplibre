@@ -1,3 +1,4 @@
+import { MapLibreDesign } from './MapLibreDesign';
 import React, { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   MapContext,
@@ -25,8 +26,7 @@ import {
   type GeoPoint,
   type MarkerAnimationOverlayEntry,
   type MapViewControllerInterface,
-  mapViewStateInternal,
-} from '@mapconductor/js-sdk-core';
+  mapViewStateInternal, BLANK_MAP_STYLE } from '@mapconductor/js-sdk-core';
 import { MapLibreProvider, MapLibreConfig } from './MapLibreProvider';
 import type { MapLibreViewStateInterface } from './MapLibreViewState';
 import type { MapLibreViewController } from './MapLibreViewController';
@@ -111,7 +111,12 @@ function InternalMapLibreMapView({
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const style = state.mapDesignType.styleJsonURL as string | StyleSpecification;
+    // `None` is handed over as the style object: mapbox-gl rejects a `data:`
+    // style URL (it goes through its own request path, not fetch).
+    const style =
+      state.mapDesignType.id === MapLibreDesign.None.id
+        ? (BLANK_MAP_STYLE as StyleSpecification)
+        : (state.mapDesignType.styleJsonURL as string | StyleSpecification);
 
     const config: MapLibreConfig = {
       container: containerRef.current,
