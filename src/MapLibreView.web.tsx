@@ -27,6 +27,7 @@ import {
   type MarkerAnimationOverlayEntry,
   type MapViewControllerInterface,
   mapViewStateInternal, BLANK_MAP_STYLE } from '@mapconductor/js-sdk-core';
+import { VectorStyleAsDesign, VectorStyleSupportKey } from '@mapconductor/js-sdk-core';
 import { MapLibreProvider, MapLibreConfig } from './MapLibreProvider';
 import type { MapLibreViewStateInterface } from './MapLibreViewState';
 import type { MapLibreViewController } from './MapLibreViewController';
@@ -251,6 +252,17 @@ function InternalMapLibreMapView({
   // so that toScreenOffset() recalculates bubble positions.
   void cameraTick;
 
+
+  // MapLibre draws vector styles natively: a layer with a style to show hands
+  // it over instead of rasterising it. Registered on mount, before the map
+  // is ready, so a layer reading the registry on the ready re-render finds it.
+  useEffect(() => {
+    state.serviceRegistry.put(
+      VectorStyleSupportKey,
+      new VectorStyleAsDesign(state, (style, key, rules) => new MapLibreDesign(key, style, rules)),
+    );
+    return () => state.serviceRegistry.remove(VectorStyleSupportKey);
+  }, [state]);
 
   // マーカー描画 capability をこのマップのサービスレジストリへ登録する。
   // marker-clustering などの拡張がここから解決する
