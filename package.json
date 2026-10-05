@@ -47,10 +47,10 @@
   "dependencies": {
     "@mapconductor/js-sdk-core": "^0.2.0",
     "@mapconductor/js-sdk-react": "^0.2.1",
-    "maplibre-gl": "^6.6.0"
+    "maplibre-gl": "^6.12.0"
   },
   "devDependencies": {
-    "react": "^19.2.8",
+    "react": "^19.3.0",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3"
   }
