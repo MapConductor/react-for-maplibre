@@ -12,9 +12,11 @@ import {
   createMapContextValue,
 } from '@mapconductor/js-sdk-react';
 import {
+  useMapViewStyle,
   useCameraRestriction,
   useMapUISettings,
   useMarkerRenderingSupport,
+  useVectorStyleMutationSupport,
 } from '@mapconductor/js-sdk-react/internal';
 import {
   MapViewBaseProps,
@@ -63,6 +65,8 @@ interface InternalMapLibreMapViewProps extends MapLibreMapViewProps {
  */
 function InternalMapLibreMapView({
   state,
+  mapStyle,
+  onStyleDiagnostics,
   onMapLoaded,
   onMapClick,
   onMapLongClick,
@@ -84,6 +88,11 @@ function InternalMapLibreMapView({
   const [provider] = useState(() => new MapLibreProvider());
   const [scope] = useState(() => new MapViewScope());
   const [controller, setController] = useState<MapViewControllerInterface | null>(null);
+
+  // 地図の見た目。何が起きるかはこのバックエンドが宣言した能力で決まるので、
+  // ここにプロバイダ固有の分岐は無い。android-sdk の `MapViewStyleEffect`、
+  // ios-sdk の `MapViewStyleHost` と同じ役目。
+  useMapViewStyle(state, controller, mapStyle, onStyleDiagnostics);
   const [isReady, setIsReady] = useState(false);
   // `onMapLoaded` と同じ瞬間を「値」として持つ。イベントを取り逃した後から
   // マウントした子（examples の Three.js overlay 等）も読めるようにするため。
@@ -269,6 +278,12 @@ function InternalMapLibreMapView({
   // （android-sdk の *MapView.kt / ios-sdk の *MapView.swift が
   //  MarkerRenderingSupportKey を put するのと同じ位置づけ）。
   useMarkerRenderingSupport(state, scope, controller);
+
+  // This renderer can be told to change a loaded style in place, so adjusting
+  // one need not hand it a new document -- which would drop its tiles and
+  // rebuild every overlay the app added. `VectorStyle` looks this up and
+  // takes the cheap road when it is here.
+  useVectorStyleMutationSupport(state, typedControllerRef.current?.getMap() ?? null, typedControllerRef.current);
 
   return (
     <MapContext.Provider value={createMapContextValue({ controller, isReady, isLoaded, state })}>
