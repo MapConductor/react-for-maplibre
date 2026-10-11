@@ -1,9 +1,9 @@
 import * as maplibregl from 'maplibre-gl';
 export { setWorkerUrl as setMapLibreWorkerUrl } from 'maplibre-gl';
 import { MapConfig, GeoRectBounds, MapProjection, MarkerTilingOptions, MapProvider, MapViewControllerInterface, MapViewHolderBase, GeoPointInterface, Offset, GeoPoint, MarkerEntity, AbstractMarkerOverlayRenderer, MarkerManager, AddParams, ChangeParams, MarkerState, BitmapIcon, AbstractMarkerController, RasterLayerState, DefaultMarkerEventController, CircleEntity, AbstractCircleOverlayRenderer, CircleManagerInterface, CircleState, CircleController, PolylineEntity, AbstractPolylineOverlayRenderer, PolylineManagerInterface, PolylineState, PolylineController, MapCameraPosition, PolygonEntity, AbstractPolygonOverlayRenderer, PolygonManagerInterface, PolygonState, SlottedOverlayController, OnPolygonEventHandler, OverlayKind, OverlayHit, AbstractGroundImageOverlayRenderer, GroundImageState, GroundImageEntity, RasterLayerOverlayRenderer, RasterLayerAddParams, RasterLayerChangeParams, RasterLayerEntity, RasterLayerController, RasterHeaderSupport, BaseMapViewController, MarkerCapable, CircleCapable, PolylineCapable, PolygonCapable, GroundImageCapable, RasterLayerCapable, MapUISettings, OnMapInitializedHandler, OnMarkerEventHandler, MarkerAnimationOverlayHost, OnGroundImageEventHandler, CameraRestriction, MapViewBaseProps, WebMercatorZoomAltitudeConverter } from '@mapconductor/js-sdk-core';
+import { MapLibreMapDesignType, MapLibreViewStateInterface } from './state.js';
+export { MapLibreDesign, MapLibreViewState, useMapLibreViewState } from './state.js';
 import React from 'react';
-import { MapLibreViewStateInterface } from './state.js';
-export { MapLibreDesign, MapLibreMapDesignType, MapLibreViewState, useMapLibreViewState } from './state.js';
 
 interface MapLibreConfig extends MapConfig {
     style?: string | maplibregl.StyleSpecification;
@@ -528,6 +528,14 @@ declare class MapLibreViewController extends BaseMapViewController implements Ma
     constructor(holder: MapLibreMapViewHolder, markerController: MapLibreMarkerController, markerEventController: MapLibreMarkerEventController, circleController: MapLibreCircleController, polylineController: MapLibrePolylineController, polygonController: MapLibrePolygonConductor, groundImageController: MapLibreGroundImageController, rasterLayerController: MapLibreRasterLayerController, styleReadyRef?: {
         current: boolean;
     }, logicalTiltHint?: number | null, projection?: MapProjection);
+    /**
+     * Swaps the style document in place.
+     *
+     * `styledata` then fires with `isStyleLoaded()`, and the events wiring
+     * resyncs every overlay controller onto the new style -- the same path a
+     * projection change already takes. Nothing here re-adds anything.
+     */
+    setMapDesignType(design: MapLibreMapDesignType): void;
     getMap(): maplibregl.Map;
     /**
      * 投影法を切り替える。android-sdk の `MapboxMapViewController.setProjection` /
@@ -602,4 +610,4 @@ declare class ZoomAltitudeConverter extends WebMercatorZoomAltitudeConverter {
     static googleZoomToMaplibreZoom(googleZoom: number): number;
 }
 
-export { type MapLibreConfig, MapLibreMapView, MapLibreMapView2D, type MapLibreMapViewProps, MapLibreProvider, MapLibreViewController, MapLibreViewStateInterface, ZoomAltitudeConverter };
+export { type MapLibreConfig, MapLibreMapDesignType, MapLibreMapView, MapLibreMapView2D, type MapLibreMapViewProps, MapLibreProvider, MapLibreViewController, MapLibreViewStateInterface, ZoomAltitudeConverter };
