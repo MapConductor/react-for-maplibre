@@ -1,4 +1,7 @@
 import * as maplibregl from 'maplibre-gl';
+import type { StyleSpecification } from 'maplibre-gl';
+import { MapLibreDesign, type MapLibreMapDesignType } from './MapLibreDesign';
+import { BLANK_MAP_STYLE } from '@mapconductor/js-sdk-core';
 import {
   BaseMapViewController,
   type CameraRestriction,
@@ -127,6 +130,21 @@ export class MapLibreViewController
       }
     };
     this.setupEventListeners();
+  }
+
+  /**
+   * Swaps the style document in place.
+   *
+   * `styledata` then fires with `isStyleLoaded()`, and the events wiring
+   * resyncs every overlay controller onto the new style -- the same path a
+   * projection change already takes. Nothing here re-adds anything.
+   */
+  setMapDesignType(design: MapLibreMapDesignType): void {
+    const style =
+      design.id === MapLibreDesign.None.id
+        ? (BLANK_MAP_STYLE as StyleSpecification)
+        : (design.styleJsonURL as string | StyleSpecification);
+    this.mapInstance.setStyle(style);
   }
 
   getMap(): maplibregl.Map {

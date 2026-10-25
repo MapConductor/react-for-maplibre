@@ -9,7 +9,6 @@ import {
   MarkerTileRenderer,
   MarkerTilingOptions,
   RasterLayerSource,
-  Settings,
   type GeoPoint,
   type MarkerEntity,
   type MarkerFingerPrint,
@@ -75,12 +74,15 @@ function registerMapLibreTileProtocol(): void {
     const parsed = parseLocalTileUrl(params.url);
     if (!parsed) return { data: toArrayBuffer(EMPTY_TILE) };
 
-    const result = await LocalTileServer.startServer().handleFetch(parsed.routeId, {
+    // An empty spot comes back as a transparent tile; a render that failed
+    // throws, which the protocol reads as a load to retry. Answering a
+    // failure with a transparent tile would cache a hole instead.
+    const bytes = await LocalTileServer.startServer().fetchTileOrThrow(parsed.routeId, {
       x: parsed.x,
       y: parsed.y,
       z: parsed.z,
     });
-    return { data: toArrayBuffer(result ?? EMPTY_TILE) };
+    return { data: toArrayBuffer(bytes) };
   });
 
   mapLibreTileProtocolRegistered = true;
@@ -168,7 +170,14 @@ export class MapLibreMarkerController extends AbstractMarkerController<MapLibreA
     const server = LocalTileServer.startServer();
 
     const { iconScaleCallback } = this.tilingOptions;
-    const tileRenderer = new MarkerTileRenderer<MarkerState>(tiledStates, 256, iconScaleCallback ?? undefined);
+    const tileRenderer = new MarkerTileRenderer<MarkerState>(
+      tiledStates,
+      256,
+      iconScaleCallback ?? undefined,
+      1.0,
+      false,
+      this.tilingOptions.declutterPx,
+    );
     this.tileRenderer = tileRenderer;
     this.tileVersion++;
     server.register(this.tileRouteId, tileRenderer);
@@ -279,10 +288,10 @@ export class MapLibreMarkerController extends AbstractMarkerController<MapLibreA
     // topmost first. That respects the real stacking order AND the true on-screen
     // icon size/placement, so it stays correct under tilt, rotation and icon
     // scaling (a hand-rolled geo/pixel-box test does not: the icon's native bitmap
-    // size and tilt projection make it match far-off markers). A `tapTolerance`
-    // box is queried as a fallback for near-misses on small icons. Tiled markers
-    // are compared with the same rule as regular ones (`preferMarkerHit`): one
-    // drawn under the pointer beats a near miss.
+    // size and tilt projection make it match far-off markers). A small box the size of the
+    // pointer's hit radius is queried as a fallback for near-misses on small
+    // icons. Tiled markers are compared with the same rule as regular ones
+    // (`preferMarkerHit`): one drawn under the pointer beats a near miss.
     const map = this.holder.map;
     const layerId = this.renderer.markerLayer.layerId;
     if (map.getLayer(layerId)) {
@@ -305,12 +314,18 @@ export class MapLibreMarkerController extends AbstractMarkerController<MapLibreA
       );
       // 指の下に描かれている通常マーカー。タイル化マーカーより手前に描かれるので、そのまま勝つ。
       if (hit) return hit;
-      const t = Settings.Default.tapTolerance;
+      // Pointer-appropriate slop, the same radii the icon-rect fallback below
+      // uses. `Settings.Default.tapTolerance` (48) is NOT the right value
+      // here: it is a general map-wide tap slop, and querying a +/-48 CSS px
+      // box around a 48 px icon made the marker answer clicks up to 48 px
+      // outside it — roughly a 144 px square target for a mouse, which is
+      // both wrong and more generous than the fallback that follows. A
+      // finger still gets the wider touch radius.
       hit = topMost(
         map.queryRenderedFeatures(
           [
-            [clickScreen.x - t, clickScreen.y - t],
-            [clickScreen.x + t, clickScreen.y + t],
+            [clickScreen.x - tolerance, clickScreen.y - tolerance],
+            [clickScreen.x + tolerance, clickScreen.y + tolerance],
           ] as unknown as [[number, number], [number, number]],
           { layers: [layerId] },
         ),

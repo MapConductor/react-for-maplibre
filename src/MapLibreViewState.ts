@@ -38,6 +38,13 @@ export class MapLibreViewState
 
   override set mapDesignType(value: MapLibreMapDesignType) {
     this._mapDesignType = value;
+    // Applied live. The map keeps its tiles, camera and every overlay the
+    // app added; only the style document changes. Tearing the map down for
+    // this is the cost the vector style design exists to avoid -- its direct
+    // path *is* a design change, and it may happen on every slider frame.
+    // android の `setMapDesignType` → `map.setStyle` と同じ位置づけ。
+    const controller = this.attachedMapController as { setMapDesignType?: (design: MapLibreMapDesignType) => void } | null;
+    controller?.setMapDesignType?.(value);
   }
 
   // Called by MapLibreView when controller is initialized
