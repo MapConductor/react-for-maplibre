@@ -28,7 +28,9 @@ import {
   type GeoPoint,
   type MarkerAnimationOverlayEntry,
   type MapViewControllerInterface,
-  mapViewStateInternal, BLANK_MAP_STYLE } from '@mapconductor/js-sdk-core';
+  mapViewStateInternal, BLANK_MAP_STYLE,
+  markerIconExtentPx,
+} from '@mapconductor/js-sdk-core';
 import { VectorStyleAsDesign, VectorStyleSupportKey } from '@mapconductor/js-sdk-core';
 import { MapLibreProvider, MapLibreConfig } from './MapLibreProvider';
 import type { MapLibreViewStateInterface } from './MapLibreViewState';
@@ -321,12 +323,12 @@ function InternalMapLibreMapView({
               const pos = entry.positionProvider();
               const screenOffset = holder.toScreenOffset(pos);
               const icon = entry.icon;
-              const iconPixelSize = icon ? icon.iconSize * icon.scale : 0;
+              const iconPixelSize = markerIconExtentPx(icon);
               return (
                 <InfoBubbleOverlay
                   key={entry.id}
                   positionOffset={screenOffset}
-                  iconSize={{ width: iconPixelSize, height: iconPixelSize }}
+                  iconSize={iconPixelSize}
                   iconOffset={icon ? icon.anchor : { x: 0.5, y: 0.5 }}
                   infoAnchorOffset={icon ? icon.infoAnchor : { x: 0.5, y: 0.5 }}
                   tailOffset={entry.tailOffset}
