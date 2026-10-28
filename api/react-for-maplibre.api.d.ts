@@ -610,4 +610,5 @@ declare class ZoomAltitudeConverter extends WebMercatorZoomAltitudeConverter {
     static googleZoomToMaplibreZoom(googleZoom: number): number;
 }
 
-export { type MapLibreConfig, MapLibreMapDesignType, MapLibreMapView, MapLibreMapView2D, type MapLibreMapViewProps, MapLibreProvider, MapLibreViewController, MapLibreViewStateInterface, ZoomAltitudeConverter };
+export { MapLibreMapDesignType, MapLibreMapView, MapLibreMapView2D, MapLibreProvider, MapLibreViewController, MapLibreViewStateInterface, ZoomAltitudeConverter };
+export type { MapLibreConfig, MapLibreMapViewProps };
