@@ -507,7 +507,6 @@ declare class MapLibreRasterLayerController extends RasterLayerController<MapLib
      */
     protected get headerSupport(): RasterHeaderSupport;
     constructor(renderer: MapLibreRasterLayerOverlayRenderer);
-    resync(): Promise<void>;
 }
 
 declare class MapLibreViewController extends BaseMapViewController implements MapViewControllerInterface, MarkerCapable, CircleCapable, PolylineCapable, PolygonCapable, GroundImageCapable, RasterLayerCapable {
