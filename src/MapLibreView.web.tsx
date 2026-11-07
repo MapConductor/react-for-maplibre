@@ -22,6 +22,7 @@ import {
   MapViewBaseProps,
   OverlayCollector,
   MarkerTilingOptions,
+  PolygonTilingOptions,
   MapProjection,
   type GeoRectBounds,
   type MapCameraPosition,
@@ -47,6 +48,8 @@ export interface MapLibreMapViewProps extends MapViewBaseProps<MapLibreViewState
   onError?: (error: Error) => void;
   children?: React.ReactNode;
   markerTilingOptions?: MarkerTilingOptions;
+  /** When to draw polygons as raster tiles. Read once, when the map is created. */
+  polygonTilingOptions?: PolygonTilingOptions;
   /**
    * 投影法。省略時は 3D 版が Globe、2D 版が Mercator。
    * android-sdk / ios-sdk の `projection: MapProjection` と同じ役割で、
@@ -85,6 +88,7 @@ function InternalMapLibreMapView({
   onError,
   children,
   markerTilingOptions,
+  polygonTilingOptions,
 }: InternalMapLibreMapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [provider] = useState(() => new MapLibreProvider());
@@ -139,6 +143,7 @@ function InternalMapLibreMapView({
       projection,
       initCameraPosition: state.cameraPosition,
       markerTilingOptions,
+      polygonTilingOptions,
     };
 
     provider

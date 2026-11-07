@@ -5,18 +5,34 @@ import {
   type GeoPoint,
   type OnPolygonEventHandler,
   type PolygonState,
+  PolygonTileSet,
+  PolygonTilingOptions,
   wrapClickedPoint,
 } from '@mapconductor/js-sdk-core';
+import type { MapLibreActualPolygon } from './MapLibrePolygonLayer';
 import { MapLibrePolygonOverlayRenderer } from './MapLibrePolygonOverlayRenderer';
+import { MapLibrePolygonTileLayer } from './MapLibrePolygonTileLayer';
+
+/** What a tiled polygon hands the GeoJSON layer: nothing. It is in the tiles. */
+const IN_TILES: MapLibreActualPolygon = { fillFeatures: [], outlineFeatures: [] };
 
 export class MapLibrePolygonConductor implements SlottedOverlayController {
   readonly polygonOverlay: MapLibrePolygonOverlayRenderer;
   clickListener: OnPolygonEventHandler | null = null;
 
   private operation = Promise.resolve();
+  private readonly tileSet = new PolygonTileSet();
 
-  constructor(polygonOverlay: MapLibrePolygonOverlayRenderer) {
+  /**
+   * @param tileLayer Where tiled polygons are shown; without one nothing is tiled.
+   */
+  constructor(
+    polygonOverlay: MapLibrePolygonOverlayRenderer,
+    private readonly tileLayer: MapLibrePolygonTileLayer | null = null,
+    private readonly tilingOptions: PolygonTilingOptions = PolygonTilingOptions.Default,
+  ) {
     this.polygonOverlay = polygonOverlay;
+    this.tileSet.onTemplateChanged = (template) => this.tileLayer?.show(template, this.tileSet.tileSize);
   }
 
   composition(data: PolygonState[]): Promise<void> {
@@ -28,19 +44,41 @@ export class MapLibrePolygonConductor implements SlottedOverlayController {
         }
       }
 
+      // Enough polygons go to the tile service worker; the rest (or all of
+      // them, when there is no worker to draw them) to the GeoJSON layer.
+      const tileable = this.tileLayer ? data.filter((state) => PolygonTileSet.canTile(state)) : [];
+      const useTiles = PolygonTilingOptions.shouldUseTiles(
+        this.tilingOptions,
+        tileable.length,
+        PolygonTileSet.vertexCount(tileable),
+      );
+      const template = useTiles ? await this.tileSet.setPolygons(tileable) : null;
+      if (template == null) this.tileSet.dispose();
+
       for (const state of data) {
+        if (template != null && this.tileSet.has(state.id)) {
+          // Still registered, so taps resolve against the original shape.
+          this.polygonOverlay.polygonManager.registerEntity(createPolygonEntity({ polygon: IN_TILES, state }));
+          continue;
+        }
         const polygon = await this.polygonOverlay.createPolygon(state);
         if (polygon) {
           this.polygonOverlay.polygonManager.registerEntity(createPolygonEntity({ polygon, state }));
         }
       }
 
+      this.tileLayer?.show(template, this.tileSet.tileSize);
       await this.redraw();
     });
   }
 
   update(state: PolygonState): Promise<void> {
     return this.enqueue(async () => {
+      if (this.tileSet.has(state.id)) {
+        this.polygonOverlay.polygonManager.registerEntity(createPolygonEntity({ polygon: IN_TILES, state }));
+        this.tileSet.update(state);
+        return;
+      }
       const polygon = await this.polygonOverlay.createPolygon(state);
       if (polygon) {
         this.polygonOverlay.polygonManager.registerEntity(createPolygonEntity({ polygon, state }));
@@ -54,11 +92,16 @@ export class MapLibrePolygonConductor implements SlottedOverlayController {
   }
 
   resync(): Promise<void> {
-    return this.enqueue(() => this.redraw());
+    return this.enqueue(async () => {
+      this.tileLayer?.resync();
+      await this.redraw();
+    });
   }
 
   clear(): Promise<void> {
     return this.enqueue(async () => {
+      this.tileSet.dispose();
+      this.tileLayer?.show(null);
       this.polygonOverlay.polygonManager.clear();
       await this.redraw();
     });
