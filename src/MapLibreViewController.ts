@@ -122,12 +122,12 @@ export class MapLibreViewController
     this.registerOverlayController(this.polygonController);
     this.registerOverlayController(this.groundImageController);
     this.registerOverlayController(this.rasterLayerController);
+    // upsert / removeById, not composition / clear: those replace every raster
+    // layer, so marker tiles removed the app's RasterLayers and polygon tiles
+    // (and the app's RasterLayers removed the marker tiles).
     this.markerController.onRasterLayerUpdate = async (state) => {
-      if (state) {
-        await this.rasterLayerController.composition([state]);
-      } else {
-        await this.rasterLayerController.clear();
-      }
+      if (state) await this.rasterLayerController.upsert(state);
+      else await this.rasterLayerController.removeById('mc-marker-tiles');
     };
     this.setupEventListeners();
   }
