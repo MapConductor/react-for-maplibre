@@ -1,6 +1,6 @@
 import * as maplibregl from 'maplibre-gl';
 export { setWorkerUrl as setMapLibreWorkerUrl } from 'maplibre-gl';
-import { MapConfig, GeoRectBounds, MapProjection, MarkerTilingOptions, MapProvider, MapViewControllerInterface, MapViewHolderBase, GeoPointInterface, Offset, GeoPoint, MarkerEntity, AbstractMarkerOverlayRenderer, MarkerManager, AddParams, ChangeParams, MarkerState, BitmapIcon, AbstractMarkerController, RasterLayerState, DefaultMarkerEventController, CircleEntity, AbstractCircleOverlayRenderer, CircleManagerInterface, CircleState, CircleController, PolylineEntity, AbstractPolylineOverlayRenderer, PolylineManagerInterface, PolylineState, PolylineController, MapCameraPosition, PolygonEntity, AbstractPolygonOverlayRenderer, PolygonManagerInterface, PolygonState, SlottedOverlayController, OnPolygonEventHandler, OverlayKind, OverlayHit, AbstractGroundImageOverlayRenderer, GroundImageState, GroundImageEntity, RasterLayerOverlayRenderer, RasterLayerAddParams, RasterLayerChangeParams, RasterLayerEntity, RasterLayerController, RasterHeaderSupport, BaseMapViewController, MarkerCapable, CircleCapable, PolylineCapable, PolygonCapable, GroundImageCapable, RasterLayerCapable, MapUISettings, OnMapInitializedHandler, OnMarkerEventHandler, MarkerAnimationOverlayHost, OnGroundImageEventHandler, CameraRestriction, MapViewBaseProps, WebMercatorZoomAltitudeConverter } from '@mapconductor/js-sdk-core';
+import { MapConfig, GeoRectBounds, MapProjection, MarkerTilingOptions, MapProvider, MapViewControllerInterface, MapViewHolderBase, GeoPointInterface, Offset, GeoPoint, MarkerEntity, AbstractMarkerOverlayRenderer, MarkerManager, AddParams, ChangeParams, MarkerState, BitmapIcon, AbstractMarkerController, RasterLayerState, DefaultMarkerEventController, CircleEntity, AbstractCircleOverlayRenderer, CircleManagerInterface, CircleState, CircleController, PolylineEntity, AbstractPolylineOverlayRenderer, PolylineManagerInterface, PolylineState, PolylineController, MapCameraPosition, PolygonEntity, AbstractPolygonOverlayRenderer, PolygonManagerInterface, PolygonState, PolygonController, AbstractGroundImageOverlayRenderer, GroundImageState, GroundImageEntity, SlottedOverlayController, OverlayKind, OverlayHit, RasterLayerOverlayRenderer, RasterLayerAddParams, RasterLayerChangeParams, RasterLayerEntity, RasterLayerController, RasterHeaderSupport, BaseMapViewController, MarkerCapable, CircleCapable, PolylineCapable, PolygonCapable, GroundImageCapable, RasterLayerCapable, MapUISettings, OnMapInitializedHandler, OnMarkerEventHandler, MarkerAnimationOverlayHost, OnGroundImageEventHandler, CameraRestriction, MapViewBaseProps, WebMercatorZoomAltitudeConverter } from '@mapconductor/js-sdk-core';
 import { MapLibreMapDesignType, MapLibreViewStateInterface } from './state.js';
 export { MapLibreDesign, MapLibreViewState, useMapLibreViewState } from './state.js';
 import React from 'react';
@@ -362,36 +362,27 @@ declare class MapLibrePolygonOverlayRenderer extends AbstractPolygonOverlayRende
     onPostProcess(): Promise<void>;
 }
 
-declare class MapLibrePolygonConductor implements SlottedOverlayController {
-    readonly polygonOverlay: MapLibrePolygonOverlayRenderer;
-    clickListener: OnPolygonEventHandler | null;
-    private operation;
-    constructor(polygonOverlay: MapLibrePolygonOverlayRenderer);
-    composition(data: PolygonState[]): Promise<void>;
-    update(state: PolygonState): Promise<void>;
-    has(state: PolygonState): boolean;
+/**
+ * core の {@link PolygonController} をそのまま使う。差分管理（fingerprint による
+ * 追加・変更・削除の振り分け）、直列化、`has`、クリックカスケード（`resolveTap`）は
+ * すべて core 側の実装で、ここには持たない。
+ *
+ * 塗りと輪郭は {@link MapLibrePolygonOverlayRenderer} が 1 つのレンダラーで描く
+ * （fill レイヤーは線幅を持てないので、輪郭は line レイヤーに別ソースで描く）。
+ * レンダラーは `onPostProcess()` でマネージャ全体から GeoJSON ソースを書き直す方式で、
+ * `removePolygon()` は何もしない。
+ */
+declare class MapLibrePolygonController extends PolygonController<MapLibreActualPolygon> {
+    readonly renderer: MapLibrePolygonOverlayRenderer;
+    constructor(renderer: MapLibrePolygonOverlayRenderer);
+    /** スタイルの再読み込みで消えたソース／レイヤーを、マネージャの内容から描き直す。 */
     resync(): Promise<void>;
+    /**
+     * core の `clear()` は `onRemove` → マネージャを空にする、までで描き直さない。
+     * このレンダラーは `onPostProcess()` でしか地図に反映しないので、ここで描き直す
+     * （同じ方式のポリラインコントローラと同じ）。
+     */
     clear(): Promise<void>;
-    private redraw;
-    /**
-     * Hit-test a map click (its lat/lng) against the polygons geometrically
-     * (point-in-polygon, honouring holes and zIndex) and dispatch the click on the
-     * top-most polygon that contains the point. Does NOT use a MapLibre
-     * layer/overlay click event — detection is driven by the map click position,
-     * matching the marker/polyline paths and android. Returns true if hit.
-     */
-    handleMapClick(clicked: GeoPoint): boolean;
-    private enqueue;
-    readonly kind: OverlayKind;
-    hasId(id: string): boolean;
-    compositionAny(data: unknown[]): Promise<void>;
-    updateAny(state: unknown): Promise<void>;
-    setClickListenerAny(listener: unknown): void;
-    /**
-     * タップの当たり判定と配送。カスケードの 1 段（{@link OverlayHitResolver}）。
-     * 判定は既存の handleMapClick と同じ（point-in-polygon、穴と zIndex を考慮）。
-     */
-    resolveTap(position: GeoPointInterface): OverlayHit | null;
 }
 
 declare class MapLibreGroundImageOverlayRenderer extends AbstractGroundImageOverlayRenderer<MapLibreMapViewHolder, string> {
@@ -526,7 +517,7 @@ declare class MapLibreViewController extends BaseMapViewController implements Ma
     private readonly polygonController;
     private readonly groundImageController;
     private readonly rasterLayerController;
-    constructor(holder: MapLibreMapViewHolder, markerController: MapLibreMarkerController, markerEventController: MapLibreMarkerEventController, circleController: MapLibreCircleController, polylineController: MapLibrePolylineController, polygonController: MapLibrePolygonConductor, groundImageController: MapLibreGroundImageController, rasterLayerController: MapLibreRasterLayerController, styleReadyRef?: {
+    constructor(holder: MapLibreMapViewHolder, markerController: MapLibreMarkerController, markerEventController: MapLibreMarkerEventController, circleController: MapLibreCircleController, polylineController: MapLibrePolylineController, polygonController: MapLibrePolygonController, groundImageController: MapLibreGroundImageController, rasterLayerController: MapLibreRasterLayerController, styleReadyRef?: {
         current: boolean;
     }, logicalTiltHint?: number | null, projection?: MapProjection);
     /**
