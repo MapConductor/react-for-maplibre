@@ -5,7 +5,7 @@ import type { MapLibreMarkerController } from './marker/MapLibreMarkerController
 import type { MapLibreMarkerEventController } from './marker/MapLibreMarkerEventController';
 import type { MapLibreCircleController } from './circle/MapLibreCircleController';
 import type { MapLibrePolylineController } from './polyline/MapLibrePolylineController';
-import type { MapLibrePolygonConductor } from './polygon/MapLibrePolygonConductor';
+import type { MapLibrePolygonController } from './polygon/MapLibrePolygonController';
 import type { MapLibreGroundImageController } from './groundimage/MapLibreGroundImageController';
 import type { MapLibreRasterLayerController } from './raster/MapLibreRasterLayerController';
 
@@ -27,7 +27,7 @@ export interface MapEventDeps {
   readonly markerEventController: MapLibreMarkerEventController;
   readonly circleController: MapLibreCircleController;
   readonly polylineController: MapLibrePolylineController;
-  readonly polygonController: MapLibrePolygonConductor;
+  readonly polygonController: MapLibrePolygonController;
   readonly groundImageController: MapLibreGroundImageController;
   readonly rasterLayerController: MapLibreRasterLayerController;
   getCameraPosition(): MapCameraPosition | null;

@@ -27,7 +27,7 @@ import { MapLibreCircleOverlayRenderer } from './circle/MapLibreCircleOverlayRen
 import { MapLibrePolylineController } from './polyline/MapLibrePolylineController';
 import { MapLibrePolylineLayer, type MapLibreActualPolyline } from './polyline/MapLibrePolylineLayer';
 import { MapLibrePolylineOverlayRenderer } from './polyline/MapLibrePolylineOverlayRenderer';
-import { MapLibrePolygonConductor } from './polygon/MapLibrePolygonConductor';
+import { MapLibrePolygonController } from './polygon/MapLibrePolygonController';
 import { MapLibrePolygonLayer, type MapLibreActualPolygon } from './polygon/MapLibrePolygonLayer';
 import { MapLibrePolygonOverlayRenderer } from './polygon/MapLibrePolygonOverlayRenderer';
 import { MapLibreGroundImageController } from './groundimage/MapLibreGroundImageController';
@@ -220,11 +220,11 @@ function getPolylineController(
 function getPolygonController(
   holder: MapLibreMapViewHolder,
   canEditStyle: () => boolean,
-): MapLibrePolygonConductor {
+): MapLibrePolygonController {
   const polygonManager = new PolygonManager<MapLibreActualPolygon>();
   const layer = new MapLibrePolygonLayer({ holder, canEditStyle });
   const renderer = new MapLibrePolygonOverlayRenderer({ layer, polygonManager, holder });
-  return new MapLibrePolygonConductor(renderer);
+  return new MapLibrePolygonController(renderer);
 }
 
 function getGroundImageController(

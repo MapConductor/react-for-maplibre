@@ -32,7 +32,7 @@ import { MapLibreMarkerController } from './marker/MapLibreMarkerController';
 import { MapLibreMarkerEventController } from './marker/MapLibreMarkerEventController';
 import { MapLibreCircleController } from './circle/MapLibreCircleController';
 import { MapLibrePolylineController } from './polyline/MapLibrePolylineController';
-import { MapLibrePolygonConductor } from './polygon/MapLibrePolygonConductor';
+import { MapLibrePolygonController } from './polygon/MapLibrePolygonController';
 import { MapLibreGroundImageController } from './groundimage/MapLibreGroundImageController';
 import { MapLibreRasterLayerController } from './raster/MapLibreRasterLayerController';
 import { installMapEventListeners } from './MapLibreViewControllerEvents';
@@ -66,7 +66,7 @@ export class MapLibreViewController
   private readonly markerEventController: MapLibreMarkerEventController;
   private readonly circleController: MapLibreCircleController;
   private readonly polylineController: MapLibrePolylineController;
-  private readonly polygonController: MapLibrePolygonConductor;
+  private readonly polygonController: MapLibrePolygonController;
   private readonly groundImageController: MapLibreGroundImageController;
   private readonly rasterLayerController: MapLibreRasterLayerController;
 
@@ -76,7 +76,7 @@ export class MapLibreViewController
     markerEventController: MapLibreMarkerEventController,
     circleController: MapLibreCircleController,
     polylineController: MapLibrePolylineController,
-    polygonController: MapLibrePolygonConductor,
+    polygonController: MapLibrePolygonController,
     groundImageController: MapLibreGroundImageController,
     rasterLayerController: MapLibreRasterLayerController,
     styleReadyRef: { current: boolean } = { current: true },
