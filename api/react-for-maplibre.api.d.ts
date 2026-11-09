@@ -1,6 +1,6 @@
 import * as maplibregl from 'maplibre-gl';
 export { setWorkerUrl as setMapLibreWorkerUrl } from 'maplibre-gl';
-import { MapConfig, GeoRectBounds, MapProjection, MarkerTilingOptions, MapProvider, MapViewControllerInterface, MapViewHolderBase, GeoPointInterface, Offset, GeoPoint, MarkerEntity, AbstractMarkerOverlayRenderer, MarkerManager, AddParams, ChangeParams, MarkerState, BitmapIcon, AbstractMarkerController, RasterLayerState, DefaultMarkerEventController, CircleEntity, AbstractCircleOverlayRenderer, CircleManagerInterface, CircleState, CircleController, PolylineEntity, AbstractPolylineOverlayRenderer, PolylineManagerInterface, PolylineState, PolylineController, MapCameraPosition, PolygonEntity, AbstractPolygonOverlayRenderer, PolygonManagerInterface, PolygonState, PolygonController, AbstractGroundImageOverlayRenderer, GroundImageState, GroundImageEntity, SlottedOverlayController, OverlayKind, OverlayHit, RasterLayerOverlayRenderer, RasterLayerAddParams, RasterLayerChangeParams, RasterLayerEntity, RasterLayerController, RasterHeaderSupport, BaseMapViewController, MarkerCapable, CircleCapable, PolylineCapable, PolygonCapable, GroundImageCapable, RasterLayerCapable, MapUISettings, OnMapInitializedHandler, OnMarkerEventHandler, MarkerAnimationOverlayHost, OnGroundImageEventHandler, CameraRestriction, MapViewBaseProps, WebMercatorZoomAltitudeConverter } from '@mapconductor/js-sdk-core';
+import { MapConfig, GeoRectBounds, MapProjection, MarkerTilingOptions, PolygonTilingOptions, MapProvider, MapViewControllerInterface, MapViewHolderBase, GeoPointInterface, Offset, GeoPoint, MarkerEntity, AbstractMarkerOverlayRenderer, MarkerManager, AddParams, ChangeParams, MarkerState, BitmapIcon, AbstractMarkerController, RasterLayerState, DefaultMarkerEventController, CircleEntity, AbstractCircleOverlayRenderer, CircleManagerInterface, CircleState, CircleController, PolylineEntity, AbstractPolylineOverlayRenderer, PolylineManagerInterface, PolylineState, PolylineController, MapCameraPosition, PolygonEntity, AbstractPolygonOverlayRenderer, PolygonManagerInterface, PolygonState, PolygonController, AbstractGroundImageOverlayRenderer, GroundImageState, GroundImageEntity, SlottedOverlayController, OverlayKind, OverlayHit, RasterLayerOverlayRenderer, RasterLayerAddParams, RasterLayerChangeParams, RasterLayerEntity, RasterLayerController, RasterHeaderSupport, BaseMapViewController, MarkerCapable, CircleCapable, PolylineCapable, PolygonCapable, GroundImageCapable, RasterLayerCapable, MapUISettings, OnMapInitializedHandler, OnMarkerEventHandler, MarkerAnimationOverlayHost, OnGroundImageEventHandler, CameraRestriction, MapViewBaseProps, WebMercatorZoomAltitudeConverter } from '@mapconductor/js-sdk-core';
 import { MapLibreMapDesignType, MapLibreViewStateInterface } from './state.js';
 export { MapLibreDesign, MapLibreViewState, useMapLibreViewState } from './state.js';
 import React from 'react';
@@ -13,6 +13,8 @@ interface MapLibreConfig extends MapConfig {
     restrictBounds?: GeoRectBounds;
     projection?: MapProjection;
     markerTilingOptions?: MarkerTilingOptions;
+    /** When to draw polygons as raster tiles; {@link PolygonTilingOptions.Default} if omitted. */
+    polygonTilingOptions?: PolygonTilingOptions;
 }
 /**
  * MapLibre provider implementation
@@ -468,7 +470,9 @@ declare class MapLibreRasterLayerOverlayRenderer implements RasterLayerOverlayRe
     private stackKey;
     /**
      * Under every other overlay (the raster band is the lowest), and under the basemap's labels,
-     * whichever comes first. Marker tiles are drawn as a raster but belong with the markers.
+     * whichever comes first. Marker tiles and polygon tiles are drawn as a raster but belong with
+     * the markers and the polygons, and are not imagery: they do not go under the labels either
+     * (under the first label the polygon tiles can end up beneath the style's opaque fills).
      */
     private beforeId;
     /**
@@ -591,6 +595,8 @@ interface MapLibreMapViewProps extends MapViewBaseProps<MapLibreViewStateInterfa
     onError?: (error: Error) => void;
     children?: React.ReactNode;
     markerTilingOptions?: MarkerTilingOptions;
+    /** When to draw polygons as raster tiles. Read once, when the map is created. */
+    polygonTilingOptions?: PolygonTilingOptions;
     /**
      * 投影法。省略時は 3D 版が Globe、2D 版が Mercator。
      * android-sdk / ios-sdk の `projection: MapProjection` と同じ役割で、
