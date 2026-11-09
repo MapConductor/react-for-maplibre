@@ -5,6 +5,8 @@ import {
   MapProvider,
   MarkerManager,
   MarkerTilingOptions,
+  PolygonTiler,
+  PolygonTilingOptions,
   PolygonManager,
   PolylineManager,
   type GeoRectBounds,
@@ -44,6 +46,8 @@ export interface MapLibreConfig extends MapConfig {
   restrictBounds?: GeoRectBounds;
   projection?: MapProjection;
   markerTilingOptions?: MarkerTilingOptions;
+  /** When to draw polygons as raster tiles; {@link PolygonTilingOptions.Default} if omitted. */
+  polygonTilingOptions?: PolygonTilingOptions;
 }
 
 function toLngLatBounds(bounds: GeoRectBounds | undefined): maplibregl.LngLatBoundsLike | undefined {
@@ -134,6 +138,9 @@ export class MapLibreProvider extends MapProvider {
     const circleController = getCircleController(holder, canEditStyle);
     const polylineController = getPolylineController(holder, canEditStyle);
     const polygonController = getPolygonController(holder, canEditStyle);
+    // Many polygons are drawn as tiles by the tile service worker and shown as one raster
+    // layer (the view controller mounts it); taps still resolve against the original shapes.
+    polygonController.tiler = new PolygonTiler(config.polygonTilingOptions ?? PolygonTilingOptions.Default);
     const groundImageController = getGroundImageController(holder, canEditStyle);
     const rasterLayerController = getRasterLayerController(holder, canEditStyle);
 

@@ -1,7 +1,7 @@
 import * as maplibregl from 'maplibre-gl';
 import type { StyleSpecification } from 'maplibre-gl';
 import { MapLibreDesign, type MapLibreMapDesignType } from './MapLibreDesign';
-import { BLANK_MAP_STYLE } from '@mapconductor/js-sdk-core';
+import { BLANK_MAP_STYLE, POLYGON_TILE_LAYER_ID, polygonTileRasterLayerState } from '@mapconductor/js-sdk-core';
 import {
   BaseMapViewController,
   type CameraRestriction,
@@ -122,12 +122,20 @@ export class MapLibreViewController
     this.registerOverlayController(this.polygonController);
     this.registerOverlayController(this.groundImageController);
     this.registerOverlayController(this.rasterLayerController);
+    // Polygon tiles (the tiler is set by the provider, with the map's PolygonTilingOptions) are
+    // shown as one raster layer, in the polygon band.
+    if (this.polygonController.tiler) {
+      this.polygonController.tiler.onTemplate = async (template, tileSize) => {
+        if (template) await this.rasterLayerController.upsert(polygonTileRasterLayerState(template, tileSize));
+        else await this.rasterLayerController.removeById(POLYGON_TILE_LAYER_ID);
+      };
+    }
+    // upsert / removeById, not composition / clear: those replace every raster
+    // layer, so marker tiles removed the app's RasterLayers and polygon tiles
+    // (and the app's RasterLayers removed the marker tiles).
     this.markerController.onRasterLayerUpdate = async (state) => {
-      if (state) {
-        await this.rasterLayerController.composition([state]);
-      } else {
-        await this.rasterLayerController.clear();
-      }
+      if (state) await this.rasterLayerController.upsert(state);
+      else await this.rasterLayerController.removeById('mc-marker-tiles');
     };
     this.setupEventListeners();
   }
