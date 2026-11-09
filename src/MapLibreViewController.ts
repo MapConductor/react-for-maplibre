@@ -1,7 +1,7 @@
 import * as maplibregl from 'maplibre-gl';
 import type { StyleSpecification } from 'maplibre-gl';
 import { MapLibreDesign, type MapLibreMapDesignType } from './MapLibreDesign';
-import { BLANK_MAP_STYLE } from '@mapconductor/js-sdk-core';
+import { BLANK_MAP_STYLE, POLYGON_TILE_LAYER_ID, polygonTileRasterLayerState } from '@mapconductor/js-sdk-core';
 import {
   BaseMapViewController,
   type CameraRestriction,
@@ -32,7 +32,7 @@ import { MapLibreMarkerController } from './marker/MapLibreMarkerController';
 import { MapLibreMarkerEventController } from './marker/MapLibreMarkerEventController';
 import { MapLibreCircleController } from './circle/MapLibreCircleController';
 import { MapLibrePolylineController } from './polyline/MapLibrePolylineController';
-import { MapLibrePolygonConductor } from './polygon/MapLibrePolygonConductor';
+import { MapLibrePolygonController } from './polygon/MapLibrePolygonController';
 import { MapLibreGroundImageController } from './groundimage/MapLibreGroundImageController';
 import { MapLibreRasterLayerController } from './raster/MapLibreRasterLayerController';
 import { installMapEventListeners } from './MapLibreViewControllerEvents';
@@ -66,7 +66,7 @@ export class MapLibreViewController
   private readonly markerEventController: MapLibreMarkerEventController;
   private readonly circleController: MapLibreCircleController;
   private readonly polylineController: MapLibrePolylineController;
-  private readonly polygonController: MapLibrePolygonConductor;
+  private readonly polygonController: MapLibrePolygonController;
   private readonly groundImageController: MapLibreGroundImageController;
   private readonly rasterLayerController: MapLibreRasterLayerController;
 
@@ -76,7 +76,7 @@ export class MapLibreViewController
     markerEventController: MapLibreMarkerEventController,
     circleController: MapLibreCircleController,
     polylineController: MapLibrePolylineController,
-    polygonController: MapLibrePolygonConductor,
+    polygonController: MapLibrePolygonController,
     groundImageController: MapLibreGroundImageController,
     rasterLayerController: MapLibreRasterLayerController,
     styleReadyRef: { current: boolean } = { current: true },
@@ -122,6 +122,14 @@ export class MapLibreViewController
     this.registerOverlayController(this.polygonController);
     this.registerOverlayController(this.groundImageController);
     this.registerOverlayController(this.rasterLayerController);
+    // Polygon tiles (the tiler is set by the provider, with the map's PolygonTilingOptions) are
+    // shown as one raster layer, in the polygon band.
+    if (this.polygonController.tiler) {
+      this.polygonController.tiler.onTemplate = async (template, tileSize) => {
+        if (template) await this.rasterLayerController.upsert(polygonTileRasterLayerState(template, tileSize));
+        else await this.rasterLayerController.removeById(POLYGON_TILE_LAYER_ID);
+      };
+    }
     // upsert / removeById, not composition / clear: those replace every raster
     // layer, so marker tiles removed the app's RasterLayers and polygon tiles
     // (and the app's RasterLayers removed the marker tiles).
@@ -280,12 +288,14 @@ export class MapLibreViewController
   // --- Lifecycle ---
 
   async clearOverlays(): Promise<void> {
-    await this.markerController.clear();
-    await this.circleController.clear();
-    await this.polylineController.clear();
-    await this.polygonController.clear();
-    this.groundImageController.clear();
-    await this.rasterLayerController.clear();
+    await this.clearOverlayControllers([
+      this.markerController,
+      this.circleController,
+      this.polylineController,
+      this.polygonController,
+      this.groundImageController,
+      this.rasterLayerController,
+    ]);
   }
 
   /**

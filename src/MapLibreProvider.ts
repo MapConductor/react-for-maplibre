@@ -5,6 +5,7 @@ import {
   MapProvider,
   MarkerManager,
   MarkerTilingOptions,
+  PolygonTiler,
   PolygonTilingOptions,
   PolygonManager,
   PolylineManager,
@@ -28,8 +29,7 @@ import { MapLibreCircleOverlayRenderer } from './circle/MapLibreCircleOverlayRen
 import { MapLibrePolylineController } from './polyline/MapLibrePolylineController';
 import { MapLibrePolylineLayer, type MapLibreActualPolyline } from './polyline/MapLibrePolylineLayer';
 import { MapLibrePolylineOverlayRenderer } from './polyline/MapLibrePolylineOverlayRenderer';
-import { MapLibrePolygonConductor } from './polygon/MapLibrePolygonConductor';
-import { MapLibrePolygonTileLayer } from './polygon/MapLibrePolygonTileLayer';
+import { MapLibrePolygonController } from './polygon/MapLibrePolygonController';
 import { MapLibrePolygonLayer, type MapLibreActualPolygon } from './polygon/MapLibrePolygonLayer';
 import { MapLibrePolygonOverlayRenderer } from './polygon/MapLibrePolygonOverlayRenderer';
 import { MapLibreGroundImageController } from './groundimage/MapLibreGroundImageController';
@@ -137,7 +137,10 @@ export class MapLibreProvider extends MapProvider {
     const markerEventController = new MapLibreMarkerEventController(markerController);
     const circleController = getCircleController(holder, canEditStyle);
     const polylineController = getPolylineController(holder, canEditStyle);
-    const polygonController = getPolygonController(holder, canEditStyle, config.polygonTilingOptions);
+    const polygonController = getPolygonController(holder, canEditStyle);
+    // Many polygons are drawn as tiles by the tile service worker and shown as one raster
+    // layer (the view controller mounts it); taps still resolve against the original shapes.
+    polygonController.tiler = new PolygonTiler(config.polygonTilingOptions ?? PolygonTilingOptions.Default);
     const groundImageController = getGroundImageController(holder, canEditStyle);
     const rasterLayerController = getRasterLayerController(holder, canEditStyle);
 
@@ -224,18 +227,11 @@ function getPolylineController(
 function getPolygonController(
   holder: MapLibreMapViewHolder,
   canEditStyle: () => boolean,
-  tilingOptions?: PolygonTilingOptions,
-): MapLibrePolygonConductor {
+): MapLibrePolygonController {
   const polygonManager = new PolygonManager<MapLibreActualPolygon>();
   const layer = new MapLibrePolygonLayer({ holder, canEditStyle });
   const renderer = new MapLibrePolygonOverlayRenderer({ layer, polygonManager, holder });
-  const tileLayer = new MapLibrePolygonTileLayer(holder, canEditStyle, [
-    layer.layerId,
-    layer.outlineLayerId,
-    'polyline-layer',
-    'mc-marker-layer',
-  ]);
-  return new MapLibrePolygonConductor(renderer, tileLayer, tilingOptions);
+  return new MapLibrePolygonController(renderer);
 }
 
 function getGroundImageController(
