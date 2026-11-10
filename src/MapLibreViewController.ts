@@ -1,7 +1,7 @@
 import * as maplibregl from 'maplibre-gl';
 import type { StyleSpecification } from 'maplibre-gl';
 import { MapLibreDesign, type MapLibreMapDesignType } from './MapLibreDesign';
-import { BLANK_MAP_STYLE, POLYGON_TILE_LAYER_ID, polygonTileRasterLayerState } from '@mapconductor/js-sdk-core';
+import { BLANK_MAP_STYLE, POLYGON_TILE_LAYER_ID, polygonTileRasterLayerState, POLYLINE_TILE_LAYER_ID, polylineTileRasterLayerState } from '@mapconductor/js-sdk-core';
 import {
   BaseMapViewController,
   type CameraRestriction,
@@ -128,6 +128,14 @@ export class MapLibreViewController
       this.polygonController.tiler.onTemplate = async (template, tileSize) => {
         if (template) await this.rasterLayerController.upsert(polygonTileRasterLayerState(template, tileSize));
         else await this.rasterLayerController.removeById(POLYGON_TILE_LAYER_ID);
+      };
+    }
+    // Many polylines are drawn as tiles too (the tiler is set by the provider, with the map's
+    // PolylineTilingOptions) and shown as one raster layer, in the polyline band.
+    if (this.polylineController.tiler) {
+      this.polylineController.tiler.onTemplate = async (template, tileSize) => {
+        if (template) await this.rasterLayerController.upsert(polylineTileRasterLayerState(template, tileSize));
+        else await this.rasterLayerController.removeById(POLYLINE_TILE_LAYER_ID);
       };
     }
     // upsert / removeById, not composition / clear: those replace every raster

@@ -4,7 +4,7 @@ import {
   MapProjection,
   MapProvider,
   MarkerManager,
-  MarkerTilingOptions,
+  MarkerTilingOptions, PolylineTiler, PolylineTilingOptions,
   PolygonTiler,
   PolygonTilingOptions,
   PolygonManager,
@@ -46,6 +46,11 @@ export interface MapLibreConfig extends MapConfig {
   restrictBounds?: GeoRectBounds;
   projection?: MapProjection;
   markerTilingOptions?: MarkerTilingOptions;
+  /**
+   * When to draw polylines as raster tiles; {@link PolylineTilingOptions.Default} if omitted.
+   * The controller's `setPolylineTilingOptions` replaces it later.
+   */
+  polylineTilingOptions?: PolylineTilingOptions;
   /** When to draw polygons as raster tiles; {@link PolygonTilingOptions.Default} if omitted. */
   polygonTilingOptions?: PolygonTilingOptions;
 }
@@ -137,6 +142,9 @@ export class MapLibreProvider extends MapProvider {
     const markerEventController = new MapLibreMarkerEventController(markerController);
     const circleController = getCircleController(holder, canEditStyle);
     const polylineController = getPolylineController(holder, canEditStyle);
+    // Many polylines are drawn as tiles by the tile service worker and shown as one raster
+    // layer (the view controller mounts it); taps still resolve against the original paths.
+    polylineController.tiler = new PolylineTiler(config.polylineTilingOptions ?? PolylineTilingOptions.Default);
     const polygonController = getPolygonController(holder, canEditStyle);
     // Many polygons are drawn as tiles by the tile service worker and shown as one raster
     // layer (the view controller mounts it); taps still resolve against the original shapes.
