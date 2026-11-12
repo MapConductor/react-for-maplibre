@@ -5,7 +5,7 @@ import {
   type MapCameraPosition,
   type VisibleRegion,
 } from '@mapconductor/js-sdk-core';
-import { toCameraPosition, toMapCameraPosition } from './MapCameraPosition';
+import { toCameraPosition, toMapCameraPosition, readVerticalFov } from './MapCameraPosition';
 import type { MapLibreMapViewHolder } from './MapLibreMapViewHolder';
 
 /**
@@ -75,6 +75,7 @@ export function readCameraPosition(
     bearing: map.getBearing(),
     tilt: map.getPitch(),
     padding: map.getPadding(),
+    fov: readVerticalFov(map),
     logicalTiltHint: logicalTiltHint,
   });
   if (!camera) return camera;

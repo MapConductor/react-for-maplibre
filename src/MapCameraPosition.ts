@@ -93,6 +93,7 @@ export function toMapCameraPosition({
     bearing,
     tilt,
     padding,
+    fov = null,
     logicalTiltHint = null,
 }: {
     center: maplibregl.LngLat;
@@ -100,11 +101,14 @@ export function toMapCameraPosition({
     bearing: number;
     tilt: number;
     padding?: maplibregl.PaddingOptions;
+    fov?: number | null;
     logicalTiltHint?: number | null;
 }): MapCameraPosition {
     // パディングを付けて動かした後の center は「パディングを除いた領域の中央」。
     // それを position として返すので、paddings も一緒に返して意味を揃える。
-    const paddings = padding ? MapPaddings.from(padding) : MapPaddings.Zeros;
+    const paddings: MapPaddings = padding
+        ? { top: padding.top ?? 0, left: padding.left ?? 0, bottom: padding.bottom ?? 0, right: padding.right ?? 0 }
+        : MapPaddings.Zeros;
     const pitchAbsDeg = Math.min(Math.max(Math.abs(tilt), 0), 60);
     if (logicalTiltHint != null && logicalTiltHint < 0 && pitchAbsDeg > 0) {
         const pitchAbsRad = (pitchAbsDeg * Math.PI) / 180;
@@ -129,6 +133,7 @@ export function toMapCameraPosition({
             bearing: bearingFromNativeHeading(bearing),
             tilt: -pitchAbsDeg,
             paddings,
+            fov,
         });
     }
     return createMapCameraPosition({
@@ -137,5 +142,19 @@ export function toMapCameraPosition({
         bearing: bearingFromNativeHeading(bearing),
         tilt,
         paddings,
+        fov,
     });
+}
+
+/**
+ * MapLibre / Mapbox GL の既定の上下視野角（度）。`getVerticalFieldOfView` を
+ * 持たない版のエンジンでだけ使う。
+ */
+const DEFAULT_VERTICAL_FOV_DEGREES = 36.87;
+
+/** エンジンが描いているカメラの上下視野角（度）。`MapCameraPosition.fov` に載せる。 */
+export function readVerticalFov(map: unknown): number {
+    const getter = (map as { getVerticalFieldOfView?: () => number }).getVerticalFieldOfView;
+    const fov = typeof getter === 'function' ? getter.call(map) : undefined;
+    return typeof fov === 'number' && Number.isFinite(fov) ? fov : DEFAULT_VERTICAL_FOV_DEGREES;
 }
