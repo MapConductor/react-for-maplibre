@@ -1,4 +1,4 @@
-import { createGeoPoint, createMapCameraPosition, computeOffset, type MapCameraPosition, toNativeHeading, bearingFromNativeHeading, } from '@mapconductor/js-sdk-core';
+import { createGeoPoint, createMapCameraPosition, computeOffset, type MapCameraPosition, MapPaddings, toNativeHeading, bearingFromNativeHeading, } from '@mapconductor/js-sdk-core';
 import type * as maplibregl from 'maplibre-gl';
 import { ZoomAltitudeConverter } from './zoom/ZoomAltitudeConverter';
 
@@ -17,6 +17,18 @@ function snapZoomToGoogle(zoom: number): number {
 }
 
 /**
+ * `MapCameraPosition.paddings` → MapLibre の `padding`。
+ *
+ * MapLibre はパディングを除いた領域の中央にカメラの中心を置く。tilt があっても
+ * 遠近はエンジンが解くので、「上に InfoBubble の分を空けてマーカーを見せる」が
+ * アプリ側の計算なしで済む。null は「今のパディングを変えない」。
+ */
+export function toMaplibrePadding(paddings: MapPaddings | null | undefined): maplibregl.PaddingOptions | undefined {
+    if (paddings == null) return undefined;
+    return { top: paddings.top, left: paddings.left, bottom: paddings.bottom, right: paddings.right };
+}
+
+/**
  * Converts a MapConductor MapCameraPosition to MapLibre camera parameters.
  * Applies the zoom offset: MapLibre zoom = MapConductor zoom - 1.
  */
@@ -25,7 +37,9 @@ export function toCameraPosition(pos: MapCameraPosition): {
     zoom: number;
     bearing: number;
     tilt: number;
+    padding?: maplibregl.PaddingOptions;
 } {
+    const padding = toMaplibrePadding(pos.paddings);
     if (pos.tilt >= 0) {
         return {
             center: [pos.position.longitude, pos.position.latitude],
@@ -38,6 +52,7 @@ export function toCameraPosition(pos: MapCameraPosition): {
             zoom: ZoomAltitudeConverter.googleZoomToMaplibreZoom(snapZoomToGoogle(pos.zoom)),
             bearing: toNativeHeading(pos.bearing),
             tilt: pos.tilt,
+            padding,
         };
     } else {
         // tilt < 0: MapLibre cannot represent an upward pitch directly.
@@ -63,6 +78,7 @@ export function toCameraPosition(pos: MapCameraPosition): {
             zoom: ZoomAltitudeConverter.googleZoomToMaplibreZoom(adjustedZoom),
             bearing: toNativeHeading(pos.bearing),
             tilt: tiltAbsDeg,
+            padding,
         };
     }
 }
@@ -76,14 +92,19 @@ export function toMapCameraPosition({
     zoom,
     bearing,
     tilt,
+    padding,
     logicalTiltHint = null,
 }: {
     center: maplibregl.LngLat;
     zoom: number;
     bearing: number;
     tilt: number;
+    padding?: maplibregl.PaddingOptions;
     logicalTiltHint?: number | null;
 }): MapCameraPosition {
+    // パディングを付けて動かした後の center は「パディングを除いた領域の中央」。
+    // それを position として返すので、paddings も一緒に返して意味を揃える。
+    const paddings = padding ? MapPaddings.from(padding) : MapPaddings.Zeros;
     const pitchAbsDeg = Math.min(Math.max(Math.abs(tilt), 0), 60);
     if (logicalTiltHint != null && logicalTiltHint < 0 && pitchAbsDeg > 0) {
         const pitchAbsRad = (pitchAbsDeg * Math.PI) / 180;
@@ -107,6 +128,7 @@ export function toMapCameraPosition({
             zoom: originalGoogleZoom,
             bearing: bearingFromNativeHeading(bearing),
             tilt: -pitchAbsDeg,
+            paddings,
         });
     }
     return createMapCameraPosition({
@@ -114,5 +136,6 @@ export function toMapCameraPosition({
         zoom: ZoomAltitudeConverter.maplibreZoomToGoogleZoom(zoom),
         bearing: bearingFromNativeHeading(bearing),
         tilt,
+        paddings,
     });
 }

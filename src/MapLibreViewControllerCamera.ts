@@ -24,6 +24,7 @@ export function jumpToPosition(map: maplibregl.Map, position: MapCameraPosition)
       zoom: cam.zoom,
       bearing: cam.bearing,
       pitch: cam.tilt,
+      ...(cam.padding ? { padding: cam.padding } : {}),
     });
   });
 }
@@ -37,6 +38,7 @@ export function easeToPosition(map: maplibregl.Map, position: MapCameraPosition,
       zoom: cam.zoom,
       bearing: cam.bearing,
       pitch: cam.tilt,
+      ...(cam.padding ? { padding: cam.padding } : {}),
       duration: durationMillis || 500,
     });
   });
@@ -72,6 +74,7 @@ export function readCameraPosition(
     zoom: map.getZoom(),
     bearing: map.getBearing(),
     tilt: map.getPitch(),
+    padding: map.getPadding(),
     logicalTiltHint: logicalTiltHint,
   });
   if (!camera) return camera;
