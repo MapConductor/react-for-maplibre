@@ -116,6 +116,8 @@ export class MapLibreProvider extends MapProvider {
       // spread のあとに置いているのは、利用者指定を上書きするためではなく包むため。
       transformRequest: withRasterHeaderTransform(config.options?.transformRequest),
     } as maplibregl.MapOptions);
+    // MapOptions にはパディングの口が無いので、作った直後に入れる。
+    if (initialCamera?.padding) map.setPadding(initialCamera.padding);
 
     // Track map immediately so destroy() can remove it even before load fires
     this.map = map;
