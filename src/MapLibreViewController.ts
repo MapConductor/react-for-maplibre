@@ -1,7 +1,7 @@
 import * as maplibregl from 'maplibre-gl';
 import type { StyleSpecification } from 'maplibre-gl';
 import { MapLibreDesign, type MapLibreMapDesignType } from './MapLibreDesign';
-import { BLANK_MAP_STYLE, POLYGON_TILE_LAYER_ID, polygonTileRasterLayerState, POLYLINE_TILE_LAYER_ID, polylineTileRasterLayerState, CIRCLE_TILE_LAYER_ID, circleTileRasterLayerState } from '@mapconductor/js-sdk-core';
+import { BLANK_MAP_STYLE, cameraFromPaddedCenter, cameraWithPaddedCenter, MapPaddings, POLYGON_TILE_LAYER_ID, polygonTileRasterLayerState, POLYLINE_TILE_LAYER_ID, polylineTileRasterLayerState, CIRCLE_TILE_LAYER_ID, circleTileRasterLayerState } from '@mapconductor/js-sdk-core';
 import {
   BaseMapViewController,
   type CameraRestriction,
@@ -27,6 +27,7 @@ import {
   type GeoPoint,
 } from '@mapconductor/js-sdk-core';
 import { ZoomAltitudeConverter } from './zoom/ZoomAltitudeConverter';
+import { readVerticalFov } from './MapCameraPosition';
 import { MapLibreMapViewHolder } from './MapLibreMapViewHolder';
 import { MapLibreMarkerController } from './marker/MapLibreMarkerController';
 import { MapLibreMarkerEventController } from './marker/MapLibreMarkerEventController';
@@ -57,6 +58,14 @@ export class MapLibreViewController
   private readonly mapInstance: maplibregl.Map;
   private initialized = false;
   private logicalTiltHint: number | null = null;
+  /**
+   * The paddings the app asked for. MapLibre's own `padding` is left at zero:
+   * it widens the frustum toward the top, so under tilt a large top padding
+   * reaches past the horizon and MapLibre loads tiles out to it (the map
+   * stalls). Shifting the camera centre instead puts the target at the padded
+   * centre with the frustum MapLibre would draw without padding.
+   */
+  private cameraPaddings: MapPaddings = MapPaddings.Zeros;
   private readonly styleReadyRef: { current: boolean };
   /** 現在の投影法。android-sdk の MapboxMapViewController の projection と同じ役割。 */
   private projection: MapProjection;
@@ -224,20 +233,41 @@ export class MapLibreViewController
 
   moveCamera(position: MapCameraPosition): Promise<boolean> {
     this.logicalTiltHint = position.tilt;
-    return jumpToPosition(this.mapInstance, position);
+    return jumpToPosition(this.mapInstance, this.withPaddedCenter(position));
   }
 
   animateCamera(position: MapCameraPosition, durationMillis: number): Promise<boolean> {
     this.logicalTiltHint = position.tilt;
-    return easeToPosition(this.mapInstance, position, durationMillis);
+    return easeToPosition(this.mapInstance, this.withPaddedCenter(position), durationMillis);
+  }
+
+  /** Moves the camera centre so the target lands at the padded-area centre; MapLibre's padding stays zero. */
+  private withPaddedCenter(position: MapCameraPosition): MapCameraPosition {
+    const paddings = position.paddings ?? this.cameraPaddings;
+    this.cameraPaddings = paddings;
+    // toCameraPosition snaps a non-negative tilt's zoom to an integer, so measure the shift at that zoom.
+    const zoom = position.tilt >= 0 ? Math.round(position.zoom) : position.zoom;
+    const canvas = this.mapInstance.getCanvas();
+    return cameraWithPaddedCenter(
+      position.copy({ paddings }),
+      readVerticalFov(this.mapInstance),
+      { width: canvas.clientWidth, height: canvas.clientHeight },
+      zoom,
+    ).copy({ paddings: MapPaddings.Zeros });
   }
 
   fitBounds(bounds: GeoRectBounds, padding: number): Promise<boolean> {
+    // The fit centres the bounds in the full view (MapLibre does not keep a
+    // fit's padding), so the camera paddings no longer describe the view.
+    this.cameraPaddings = MapPaddings.Zeros;
     return fitMapBounds(this.mapInstance, bounds, padding);
   }
 
   getCameraPosition(): MapCameraPosition | null {
-    return readCameraPosition(this.mapInstance, this.holder, this.logicalTiltHint);
+    const camera = readCameraPosition(this.mapInstance, this.holder, this.logicalTiltHint);
+    if (!camera) return camera;
+    const canvas = this.mapInstance.getCanvas();
+    return cameraFromPaddedCenter(camera, this.cameraPaddings, camera.fov, { width: canvas.clientWidth, height: canvas.clientHeight });
   }
 
   /**

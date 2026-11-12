@@ -19,9 +19,11 @@ function snapZoomToGoogle(zoom: number): number {
 /**
  * `MapCameraPosition.paddings` → MapLibre の `padding`。
  *
- * MapLibre はパディングを除いた領域の中央にカメラの中心を置く。tilt があっても
- * 遠近はエンジンが解くので、「上に InfoBubble の分を空けてマーカーを見せる」が
- * アプリ側の計算なしで済む。null は「今のパディングを変えない」。
+ * コントローラはここへ常に 0 を渡し、MapLibre のパディングを 0 に戻すために使う。
+ * アプリが指定した paddings は、カメラの中心をずらす計算（core の
+ * cameraWithPaddedCenter）で再現する。MapLibre のパディングは視錐台を上へ広げるので、
+ * tilt があって上を大きく空けると地平線の先までタイルを読みに行き、地図が固まる。
+ * null は「今のパディングを変えない」。
  */
 export function toMaplibrePadding(paddings: MapPaddings | null | undefined): maplibregl.PaddingOptions | undefined {
     if (paddings == null) return undefined;

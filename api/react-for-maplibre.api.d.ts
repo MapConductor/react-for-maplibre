@@ -535,6 +535,14 @@ declare class MapLibreViewController extends BaseMapViewController implements Ma
     private readonly mapInstance;
     private initialized;
     private logicalTiltHint;
+    /**
+     * The paddings the app asked for. MapLibre's own `padding` is left at zero:
+     * it widens the frustum toward the top, so under tilt a large top padding
+     * reaches past the horizon and MapLibre loads tiles out to it (the map
+     * stalls). Shifting the camera centre instead puts the target at the padded
+     * centre with the frustum MapLibre would draw without padding.
+     */
+    private cameraPaddings;
     private readonly styleReadyRef;
     /** 現在の投影法。android-sdk の MapboxMapViewController の projection と同じ役割。 */
     private projection;
@@ -569,6 +577,8 @@ declare class MapLibreViewController extends BaseMapViewController implements Ma
     setMapInitializedListener(listener: OnMapInitializedHandler | null): void;
     moveCamera(position: MapCameraPosition): Promise<boolean>;
     animateCamera(position: MapCameraPosition, durationMillis: number): Promise<boolean>;
+    /** Moves the camera centre so the target lands at the padded-area centre; MapLibre's padding stays zero. */
+    private withPaddedCenter;
     fitBounds(bounds: GeoRectBounds, padding: number): Promise<boolean>;
     getCameraPosition(): MapCameraPosition | null;
     /**
