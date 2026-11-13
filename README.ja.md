@@ -4,6 +4,69 @@
 
 MapConductor React SDK の MapLibre GL JS プロバイダです。MapConductor のプロバイダ非依存なカメラ・マーカー・オーバーレイ API を通じて MapLibre の地図を描画するため、同じアプリケーションコードが Google Maps、Mapbox、Leaflet、OpenLayers、ArcGIS、Cesium、HERE でもそのまま動作します。
 
+## デモ
+
+[![MapLibre の店舗マップのサンプル](https://raw.githubusercontent.com/MapConductor/react-for-maplibre/main/docs/images/demo.jpg)](https://demo-react.mapconductor.com/maplibre/map/en)
+
+[ライブデモ](https://demo-react.mapconductor.com/maplibre/map/en)で動かせます。同じ店舗マップがどのプロバイダでも動き、画面上で切り替えられます。店舗を 3 つに絞ったコード:
+
+```tsx
+import { useMemo, useState } from 'react';
+import {
+  createGeoPoint,
+  createMapCameraPosition,
+  createMarkerState,
+  type MarkerState,
+} from '@mapconductor/js-sdk-core';
+import { InfoBubble, Markers } from '@mapconductor/js-sdk-react';
+import { MapLibreDesign, MapLibreMapView2D, useMapLibreViewState } from '@mapconductor/react-for-maplibre';
+import '@mapconductor/react-for-maplibre/style.css';
+
+const STORES = [
+  { id: 'waikiki', name: 'Waikiki', latitude: 21.2793, longitude: -157.8292 },
+  { id: 'kailua', name: 'Kailua', latitude: 21.3972, longitude: -157.7394 },
+  { id: 'haleiwa', name: 'Haleiwa', latitude: 21.5928, longitude: -158.1034 },
+];
+
+const INITIAL_CAMERA = createMapCameraPosition({
+  position: createGeoPoint({ latitude: 21.38, longitude: -157.93 }),
+  zoom: 10,
+});
+
+export default function App() {
+  const mapViewState = useMapLibreViewState({
+    mapDesignType: MapLibreDesign.OsmBrightJa,
+    cameraPosition: INITIAL_CAMERA,
+  });
+  const [selected, setSelected] = useState<MarkerState | null>(null);
+  const markers = useMemo(
+    () =>
+      STORES.map(store =>
+        createMarkerState({
+          id: store.id,
+          position: createGeoPoint({ latitude: store.latitude, longitude: store.longitude }),
+          extra: store,
+          onClick: marker => setSelected(marker),
+        }),
+      ),
+    [],
+  );
+
+  return (
+    <div style={{ width: '100%', height: '100vh' }}>
+      <MapLibreMapView2D state={mapViewState} onMapClick={() => setSelected(null)}>
+        <Markers states={markers} />
+        {selected && (
+          <InfoBubble marker={selected}>
+            <strong>{(selected.extra as (typeof STORES)[number]).name}</strong>
+          </InfoBubble>
+        )}
+      </MapLibreMapView2D>
+    </div>
+  );
+}
+```
+
 ## インストール
 
 ```shell
@@ -38,7 +101,7 @@ worker の読み込みに失敗しても MapLibre は例外を投げません。
 タイルが永久に届かない状態になります。ネットワークパネルで `.pbf` の要求が 0 件なら
 この症状です。
 
-![](https://raw.githubusercontent.com/mapconductor/react-for-maplibre/docs/images/hello-map.jpg)
+![](https://raw.githubusercontent.com/MapConductor/react-for-maplibre/main/docs/images/hello-map.jpg)
 
 ## Hello Map チュートリアル
 

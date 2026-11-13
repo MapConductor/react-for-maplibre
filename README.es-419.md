@@ -4,6 +4,69 @@
 
 Proveedor de MapLibre GL JS para el SDK de React de MapConductor. Renderiza un mapa de MapLibre a través de la API de cámara, marcadores y superposiciones independiente del proveedor de MapConductor, de modo que el mismo código de aplicación también puede ejecutarse en Google Maps, Mapbox, Leaflet, OpenLayers, ArcGIS, Cesium o HERE.
 
+## Demostración
+
+[![Ejemplo de mapa de tiendas con MapLibre](https://raw.githubusercontent.com/MapConductor/react-for-maplibre/main/docs/images/demo.jpg)](https://demo-react.mapconductor.com/maplibre/map/en)
+
+Ábrelo en la [demo en vivo](https://demo-react.mapconductor.com/maplibre/map/en): el mismo mapa de tiendas funciona con todos los proveedores y la página cambia entre ellos. El código, reducido a tres tiendas:
+
+```tsx
+import { useMemo, useState } from 'react';
+import {
+  createGeoPoint,
+  createMapCameraPosition,
+  createMarkerState,
+  type MarkerState,
+} from '@mapconductor/js-sdk-core';
+import { InfoBubble, Markers } from '@mapconductor/js-sdk-react';
+import { MapLibreDesign, MapLibreMapView2D, useMapLibreViewState } from '@mapconductor/react-for-maplibre';
+import '@mapconductor/react-for-maplibre/style.css';
+
+const STORES = [
+  { id: 'waikiki', name: 'Waikiki', latitude: 21.2793, longitude: -157.8292 },
+  { id: 'kailua', name: 'Kailua', latitude: 21.3972, longitude: -157.7394 },
+  { id: 'haleiwa', name: 'Haleiwa', latitude: 21.5928, longitude: -158.1034 },
+];
+
+const INITIAL_CAMERA = createMapCameraPosition({
+  position: createGeoPoint({ latitude: 21.38, longitude: -157.93 }),
+  zoom: 10,
+});
+
+export default function App() {
+  const mapViewState = useMapLibreViewState({
+    mapDesignType: MapLibreDesign.OsmBrightJa,
+    cameraPosition: INITIAL_CAMERA,
+  });
+  const [selected, setSelected] = useState<MarkerState | null>(null);
+  const markers = useMemo(
+    () =>
+      STORES.map(store =>
+        createMarkerState({
+          id: store.id,
+          position: createGeoPoint({ latitude: store.latitude, longitude: store.longitude }),
+          extra: store,
+          onClick: marker => setSelected(marker),
+        }),
+      ),
+    [],
+  );
+
+  return (
+    <div style={{ width: '100%', height: '100vh' }}>
+      <MapLibreMapView2D state={mapViewState} onMapClick={() => setSelected(null)}>
+        <Markers states={markers} />
+        {selected && (
+          <InfoBubble marker={selected}>
+            <strong>{(selected.extra as (typeof STORES)[number]).name}</strong>
+          </InfoBubble>
+        )}
+      </MapLibreMapView2D>
+    </div>
+  );
+}
+```
+
 ## Instalación
 
 ```shell
@@ -40,7 +103,7 @@ funcionando. Las compilaciones de producción lo emiten como un asset normal.
 Si el worker no carga, MapLibre no lanza ningún error: el mapa dibuja su fondo y
 los tiles nunca llegan. Cero solicitudes `.pbf` en el panel de red es el síntoma.
 
-![](https://raw.githubusercontent.com/mapconductor/react-for-maplibre/docs/images/hello-map.jpg)
+![](https://raw.githubusercontent.com/MapConductor/react-for-maplibre/main/docs/images/hello-map.jpg)
 
 ## Tutorial Hello Map
 
