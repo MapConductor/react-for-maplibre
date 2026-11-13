@@ -4,7 +4,9 @@ import {
   MapProjection,
   MapProvider,
   MarkerManager,
-  MarkerTilingOptions,
+  MarkerTilingOptions, PolylineTiler, PolylineTilingOptions, CircleTiler, CircleTilingOptions,
+  PolygonTiler,
+  PolygonTilingOptions,
   PolygonManager,
   PolylineManager,
   type GeoRectBounds,
@@ -27,7 +29,7 @@ import { MapLibreCircleOverlayRenderer } from './circle/MapLibreCircleOverlayRen
 import { MapLibrePolylineController } from './polyline/MapLibrePolylineController';
 import { MapLibrePolylineLayer, type MapLibreActualPolyline } from './polyline/MapLibrePolylineLayer';
 import { MapLibrePolylineOverlayRenderer } from './polyline/MapLibrePolylineOverlayRenderer';
-import { MapLibrePolygonConductor } from './polygon/MapLibrePolygonConductor';
+import { MapLibrePolygonController } from './polygon/MapLibrePolygonController';
 import { MapLibrePolygonLayer, type MapLibreActualPolygon } from './polygon/MapLibrePolygonLayer';
 import { MapLibrePolygonOverlayRenderer } from './polygon/MapLibrePolygonOverlayRenderer';
 import { MapLibreGroundImageController } from './groundimage/MapLibreGroundImageController';
@@ -44,6 +46,18 @@ export interface MapLibreConfig extends MapConfig {
   restrictBounds?: GeoRectBounds;
   projection?: MapProjection;
   markerTilingOptions?: MarkerTilingOptions;
+  /**
+   * When to draw polylines as raster tiles; {@link PolylineTilingOptions.Default} if omitted.
+   * The controller's `setPolylineTilingOptions` replaces it later.
+   */
+  polylineTilingOptions?: PolylineTilingOptions;
+  /**
+   * When to draw circles as raster tiles; {@link CircleTilingOptions.Default} if omitted.
+   * The controller's `setCircleTilingOptions` replaces it later.
+   */
+  circleTilingOptions?: CircleTilingOptions;
+  /** When to draw polygons as raster tiles; {@link PolygonTilingOptions.Default} if omitted. */
+  polygonTilingOptions?: PolygonTilingOptions;
 }
 
 function toLngLatBounds(bounds: GeoRectBounds | undefined): maplibregl.LngLatBoundsLike | undefined {
@@ -102,6 +116,7 @@ export class MapLibreProvider extends MapProvider {
       // spread のあとに置いているのは、利用者指定を上書きするためではなく包むため。
       transformRequest: withRasterHeaderTransform(config.options?.transformRequest),
     } as maplibregl.MapOptions);
+    // paddings are applied by the controller (camera-centre shift) on its first move, not as MapLibre padding.
 
     // Track map immediately so destroy() can remove it even before load fires
     this.map = map;
@@ -133,7 +148,16 @@ export class MapLibreProvider extends MapProvider {
     const markerEventController = new MapLibreMarkerEventController(markerController);
     const circleController = getCircleController(holder, canEditStyle);
     const polylineController = getPolylineController(holder, canEditStyle);
+    // Many polylines are drawn as tiles by the tile service worker and shown as one raster
+    // layer (the view controller mounts it); taps still resolve against the original paths.
+    polylineController.tiler = new PolylineTiler(config.polylineTilingOptions ?? PolylineTilingOptions.Default);
+    // Many circles are drawn as tiles too, shown as one raster layer at the bottom of the circle
+    // band (the view controller mounts it); taps still resolve against the original circles.
+    circleController.tiler = new CircleTiler(config.circleTilingOptions ?? CircleTilingOptions.Default);
     const polygonController = getPolygonController(holder, canEditStyle);
+    // Many polygons are drawn as tiles by the tile service worker and shown as one raster
+    // layer (the view controller mounts it); taps still resolve against the original shapes.
+    polygonController.tiler = new PolygonTiler(config.polygonTilingOptions ?? PolygonTilingOptions.Default);
     const groundImageController = getGroundImageController(holder, canEditStyle);
     const rasterLayerController = getRasterLayerController(holder, canEditStyle);
 
@@ -220,11 +244,11 @@ function getPolylineController(
 function getPolygonController(
   holder: MapLibreMapViewHolder,
   canEditStyle: () => boolean,
-): MapLibrePolygonConductor {
+): MapLibrePolygonController {
   const polygonManager = new PolygonManager<MapLibreActualPolygon>();
   const layer = new MapLibrePolygonLayer({ holder, canEditStyle });
   const renderer = new MapLibrePolygonOverlayRenderer({ layer, polygonManager, holder });
-  return new MapLibrePolygonConductor(renderer);
+  return new MapLibrePolygonController(renderer);
 }
 
 function getGroundImageController(

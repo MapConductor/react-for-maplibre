@@ -1,7 +1,7 @@
 import * as maplibregl from 'maplibre-gl';
 import type { StyleSpecification } from 'maplibre-gl';
 import { MapLibreDesign, type MapLibreMapDesignType } from './MapLibreDesign';
-import { BLANK_MAP_STYLE } from '@mapconductor/js-sdk-core';
+import { BLANK_MAP_STYLE, cameraFromPaddedCenter, cameraWithPaddedCenter, MapPaddings, POLYGON_TILE_LAYER_ID, polygonTileRasterLayerState, POLYLINE_TILE_LAYER_ID, polylineTileRasterLayerState, CIRCLE_TILE_LAYER_ID, circleTileRasterLayerState } from '@mapconductor/js-sdk-core';
 import {
   BaseMapViewController,
   type CameraRestriction,
@@ -27,12 +27,13 @@ import {
   type GeoPoint,
 } from '@mapconductor/js-sdk-core';
 import { ZoomAltitudeConverter } from './zoom/ZoomAltitudeConverter';
+import { readVerticalFov } from './MapCameraPosition';
 import { MapLibreMapViewHolder } from './MapLibreMapViewHolder';
 import { MapLibreMarkerController } from './marker/MapLibreMarkerController';
 import { MapLibreMarkerEventController } from './marker/MapLibreMarkerEventController';
 import { MapLibreCircleController } from './circle/MapLibreCircleController';
 import { MapLibrePolylineController } from './polyline/MapLibrePolylineController';
-import { MapLibrePolygonConductor } from './polygon/MapLibrePolygonConductor';
+import { MapLibrePolygonController } from './polygon/MapLibrePolygonController';
 import { MapLibreGroundImageController } from './groundimage/MapLibreGroundImageController';
 import { MapLibreRasterLayerController } from './raster/MapLibreRasterLayerController';
 import { installMapEventListeners } from './MapLibreViewControllerEvents';
@@ -57,6 +58,14 @@ export class MapLibreViewController
   private readonly mapInstance: maplibregl.Map;
   private initialized = false;
   private logicalTiltHint: number | null = null;
+  /**
+   * The paddings the app asked for. MapLibre's own `padding` is left at zero:
+   * it widens the frustum toward the top, so under tilt a large top padding
+   * reaches past the horizon and MapLibre loads tiles out to it (the map
+   * stalls). Shifting the camera centre instead puts the target at the padded
+   * centre with the frustum MapLibre would draw without padding.
+   */
+  private cameraPaddings: MapPaddings = MapPaddings.Zeros;
   private readonly styleReadyRef: { current: boolean };
   /** 現在の投影法。android-sdk の MapboxMapViewController の projection と同じ役割。 */
   private projection: MapProjection;
@@ -66,7 +75,7 @@ export class MapLibreViewController
   private readonly markerEventController: MapLibreMarkerEventController;
   private readonly circleController: MapLibreCircleController;
   private readonly polylineController: MapLibrePolylineController;
-  private readonly polygonController: MapLibrePolygonConductor;
+  private readonly polygonController: MapLibrePolygonController;
   private readonly groundImageController: MapLibreGroundImageController;
   private readonly rasterLayerController: MapLibreRasterLayerController;
 
@@ -76,7 +85,7 @@ export class MapLibreViewController
     markerEventController: MapLibreMarkerEventController,
     circleController: MapLibreCircleController,
     polylineController: MapLibrePolylineController,
-    polygonController: MapLibrePolygonConductor,
+    polygonController: MapLibrePolygonController,
     groundImageController: MapLibreGroundImageController,
     rasterLayerController: MapLibreRasterLayerController,
     styleReadyRef: { current: boolean } = { current: true },
@@ -122,12 +131,36 @@ export class MapLibreViewController
     this.registerOverlayController(this.polygonController);
     this.registerOverlayController(this.groundImageController);
     this.registerOverlayController(this.rasterLayerController);
+    // Polygon tiles (the tiler is set by the provider, with the map's PolygonTilingOptions) are
+    // shown as one raster layer, in the polygon band.
+    if (this.polygonController.tiler) {
+      this.polygonController.tiler.onTemplate = async (template, tileSize) => {
+        if (template) await this.rasterLayerController.upsert(polygonTileRasterLayerState(template, tileSize));
+        else await this.rasterLayerController.removeById(POLYGON_TILE_LAYER_ID);
+      };
+    }
+    // Many polylines are drawn as tiles too (the tiler is set by the provider, with the map's
+    // PolylineTilingOptions) and shown as one raster layer, in the polyline band.
+    if (this.polylineController.tiler) {
+      this.polylineController.tiler.onTemplate = async (template, tileSize) => {
+        if (template) await this.rasterLayerController.upsert(polylineTileRasterLayerState(template, tileSize));
+        else await this.rasterLayerController.removeById(POLYLINE_TILE_LAYER_ID);
+      };
+    }
+    // Many circles are drawn as tiles too (the tiler is set by the provider, with the map's
+    // CircleTilingOptions) and shown as one raster layer, at the bottom of the circle band.
+    if (this.circleController.tiler) {
+      this.circleController.tiler.onTemplate = async (template, tileSize) => {
+        if (template) await this.rasterLayerController.upsert(circleTileRasterLayerState(template, tileSize));
+        else await this.rasterLayerController.removeById(CIRCLE_TILE_LAYER_ID);
+      };
+    }
+    // upsert / removeById, not composition / clear: those replace every raster
+    // layer, so marker tiles removed the app's RasterLayers and polygon tiles
+    // (and the app's RasterLayers removed the marker tiles).
     this.markerController.onRasterLayerUpdate = async (state) => {
-      if (state) {
-        await this.rasterLayerController.composition([state]);
-      } else {
-        await this.rasterLayerController.clear();
-      }
+      if (state) await this.rasterLayerController.upsert(state);
+      else await this.rasterLayerController.removeById('mc-marker-tiles');
     };
     this.setupEventListeners();
   }
@@ -200,20 +233,41 @@ export class MapLibreViewController
 
   moveCamera(position: MapCameraPosition): Promise<boolean> {
     this.logicalTiltHint = position.tilt;
-    return jumpToPosition(this.mapInstance, position);
+    return jumpToPosition(this.mapInstance, this.withPaddedCenter(position));
   }
 
   animateCamera(position: MapCameraPosition, durationMillis: number): Promise<boolean> {
     this.logicalTiltHint = position.tilt;
-    return easeToPosition(this.mapInstance, position, durationMillis);
+    return easeToPosition(this.mapInstance, this.withPaddedCenter(position), durationMillis);
+  }
+
+  /** Moves the camera centre so the target lands at the padded-area centre; MapLibre's padding stays zero. */
+  private withPaddedCenter(position: MapCameraPosition): MapCameraPosition {
+    const paddings = position.paddings ?? this.cameraPaddings;
+    this.cameraPaddings = paddings;
+    // toCameraPosition snaps a non-negative tilt's zoom to an integer, so measure the shift at that zoom.
+    const zoom = position.tilt >= 0 ? Math.round(position.zoom) : position.zoom;
+    const canvas = this.mapInstance.getCanvas();
+    return cameraWithPaddedCenter(
+      position.copy({ paddings }),
+      readVerticalFov(this.mapInstance),
+      { width: canvas.clientWidth, height: canvas.clientHeight },
+      zoom,
+    ).copy({ paddings: MapPaddings.Zeros });
   }
 
   fitBounds(bounds: GeoRectBounds, padding: number): Promise<boolean> {
+    // The fit centres the bounds in the full view (MapLibre does not keep a
+    // fit's padding), so the camera paddings no longer describe the view.
+    this.cameraPaddings = MapPaddings.Zeros;
     return fitMapBounds(this.mapInstance, bounds, padding);
   }
 
   getCameraPosition(): MapCameraPosition | null {
-    return readCameraPosition(this.mapInstance, this.holder, this.logicalTiltHint);
+    const camera = readCameraPosition(this.mapInstance, this.holder, this.logicalTiltHint);
+    if (!camera) return camera;
+    const canvas = this.mapInstance.getCanvas();
+    return cameraFromPaddedCenter(camera, this.cameraPaddings, camera.fov, { width: canvas.clientWidth, height: canvas.clientHeight });
   }
 
   /**
@@ -280,12 +334,14 @@ export class MapLibreViewController
   // --- Lifecycle ---
 
   async clearOverlays(): Promise<void> {
-    await this.markerController.clear();
-    await this.circleController.clear();
-    await this.polylineController.clear();
-    await this.polygonController.clear();
-    this.groundImageController.clear();
-    await this.rasterLayerController.clear();
+    await this.clearOverlayControllers([
+      this.markerController,
+      this.circleController,
+      this.polylineController,
+      this.polygonController,
+      this.groundImageController,
+      this.rasterLayerController,
+    ]);
   }
 
   /**

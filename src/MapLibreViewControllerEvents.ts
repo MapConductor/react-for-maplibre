@@ -5,7 +5,7 @@ import type { MapLibreMarkerController } from './marker/MapLibreMarkerController
 import type { MapLibreMarkerEventController } from './marker/MapLibreMarkerEventController';
 import type { MapLibreCircleController } from './circle/MapLibreCircleController';
 import type { MapLibrePolylineController } from './polyline/MapLibrePolylineController';
-import type { MapLibrePolygonConductor } from './polygon/MapLibrePolygonConductor';
+import type { MapLibrePolygonController } from './polygon/MapLibrePolygonController';
 import type { MapLibreGroundImageController } from './groundimage/MapLibreGroundImageController';
 import type { MapLibreRasterLayerController } from './raster/MapLibreRasterLayerController';
 
@@ -27,7 +27,7 @@ export interface MapEventDeps {
   readonly markerEventController: MapLibreMarkerEventController;
   readonly circleController: MapLibreCircleController;
   readonly polylineController: MapLibrePolylineController;
-  readonly polygonController: MapLibrePolygonConductor;
+  readonly polygonController: MapLibrePolygonController;
   readonly groundImageController: MapLibreGroundImageController;
   readonly rasterLayerController: MapLibreRasterLayerController;
   getCameraPosition(): MapCameraPosition | null;
@@ -117,6 +117,14 @@ export function installMapEventListeners(deps: MapEventDeps): void {
     });
 
     map.on('error', (e) => {
+      // タイル1枚の取得失敗（回線の瞬断、地図の破棄による中断など）は、パンや
+      // ズームで取り直される一過性のもの。スタイルやソース自体の失敗と同じ赤で
+      // 出すと本物のエラーが埋もれるので、警告に落とす。maplibre はタイルの
+      // 読み込み失敗にだけ `tile` を添えて fire する。
+      if ((e as { tile?: unknown }).tile !== undefined) {
+        console.warn('[MapConductor] MapLibre tile failed to load:', e.error);
+        return;
+      }
       console.error('[MapConductor] MapLibre error:', e.error);
     });
 
